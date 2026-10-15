@@ -910,7 +910,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 @media (max-width:700px){.torta-wrap{grid-template-columns:1fr}}
 .torta-wrap svg{width:100%;height:auto;display:block}
 .torta-wrap svg path{stroke:var(--surface);stroke-width:1.5;cursor:default}
-.torta-lab{font:700 12px "IBM Plex Mono",monospace;fill:#fff;pointer-events:none}
+.torta-lab{font:700 12px "IBM Plex Mono",monospace;fill:#111;pointer-events:none}
 .torta-leg{display:flex;flex-direction:column;gap:6px}
 .torta-item{display:grid;grid-template-columns:14px 1fr auto auto;gap:10px;align-items:center;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:500 12.5px "IBM Plex Sans",sans-serif;padding:7px 10px;border-radius:2px;cursor:pointer;text-align:left}
 .torta-item:hover{border-color:var(--ink-3)}
@@ -983,6 +983,10 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .chip{border:1.5px solid var(--ink-3);background:transparent;color:var(--ink);font:600 11px "IBM Plex Sans",sans-serif;padding:3px 7px;border-radius:2px;cursor:pointer}
 .chip b{color:var(--ink-3);margin-left:3px}
 .chip:hover b{color:var(--c-os)}
+.legmedia{margin:8px 0 2px;padding:7px 9px;border:1px solid var(--line);border-left:3px solid var(--c-extra);background:var(--surface-2);border-radius:2px;display:flex;flex-direction:column;gap:1px}
+.legmedia span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:700}
+.legmedia b{font:600 16px "IBM Plex Mono",monospace;color:var(--ink)}
+.legmedia small{font-size:10.5px;color:var(--ink-3);line-height:1.35}
 .nobase-note{position:absolute;left:58px;bottom:10px;z-index:450;background:var(--surface);border:1px solid var(--line);padding:5px 9px;font-size:11px;color:var(--ink-3);border-radius:2px;max-width:55%}
 </style>
 
@@ -1015,7 +1019,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 
 <section id="general">
   <div class="sectionhead"><span class="num">01</span><h2>Matr&iacute;cula general</h2></div>
-  <p class="lede">Matr&iacute;cula por comuna y por tipo de colegio. Por defecto se muestra solo el tramo regular, de 1&deg; b&aacute;sico a 4&deg; medio; con los botones &ldquo;Incluir tambi&eacute;n&rdquo; se suman la educaci&oacute;n parvularia, la especial y la de adultos. Cada gr&aacute;fico tiene sus propios botones de comuna, incluido el total de la Regi&oacute;n de Los Lagos.</p>
+  <p class="lede">Matr&iacute;cula por comuna y por tipo de colegio. Tramo regular, de 1&deg; b&aacute;sico a 4&deg; medio.</p>
   <div class="grid">
     <div class="card" id="panel-headline"></div>
     <div class="card" id="panel-depe"></div>
@@ -1027,7 +1031,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 
 <section id="establecimientos">
   <div class="sectionhead"><span class="num">02</span><h2>Establecimientos</h2></div>
-  <p class="lede">N&uacute;mero de colegios con matr&iacute;cula ese a&ntilde;o, por dependencia y por ruralidad. Por defecto se cuentan los colegios que tienen alumnos en el tramo regular (1&deg; b&aacute;sico a 4&deg; medio); con &ldquo;Incluir tambi&eacute;n&rdquo; se suman los que solo imparten parvularia, especial o adultos (por ejemplo, las escuelas de lenguaje).</p>
+  <p class="lede">N&uacute;mero de colegios con matr&iacute;cula ese a&ntilde;o, por dependencia y por ruralidad. Tramo regular, de 1&deg; b&aacute;sico a 4&deg; medio.</p>
   <div class="grid">
     <div class="card" id="panel-estabdepe"></div>
     <div class="card" id="panel-estabrural"></div>
@@ -1968,7 +1972,7 @@ makePanel('panel-flow',{
     var depNom = DEPS.filter(function(d){ return d[0]===dep; })[0][1];
     var lugar = esReg ? 'la región' : 'la comuna';
     h3.textContent = 'Matrícula total '+anio+' de '+comuna+' según año de llegada a '+lugar+(dep==='T' ? '' : ' · '+depNom);
-    sub.textContent = 'Cada barra agrupa a los alumnos de 1° básico a 4° medio matriculados en '+anio+' que llegaron a '+lugar+' ese año y no se han ido; los colores indican de dónde venían. "≤2014": en '+lugar+' desde 2014 o antes. Las barras suman el 100%. Click en una barra para ver sus comunas de origen.';
+    sub.textContent = 'Alumnos de 1° básico a 4° medio matriculados en '+anio+', según el año en que llegaron a '+lugar+' y de dónde venían. Las barras suman 100%.';
     Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
     var totAll = 0, totVis = 0, porCat = {};
@@ -2662,6 +2666,32 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       if(r.v[0] < 20) h += '<div class="tt-warn">Menos de 20 personas: los porcentajes son poco estables.</div>';
       return h;
     }
+    // valor comunal del indicador: promedio de los polígonos visibles ponderado por la base de cada indicador
+    // (personas, población de 18+ o viviendas); NNA por hectárea = total de NNA / total de hectáreas
+    var BASE_P = ['men18','men6','may60','inm','edad'];
+    var BASE_W = ['esc','sup','prof','elem','desocup','casado','conviv','auc','sepdiv','viudo','soltero'];
+    var filasVis = [];
+    function valorComunal(filas){
+      var v = st.v;
+      if(v.cat) return null;
+      if(v.key==='nna'){
+        var n = 0, ha = 0; filas.forEach(function(r){ if(r.v[KH]>0){ n += r.v[KNN]||0; ha += r.v[KH]; } });
+        return ha ? {x:n/ha, base:'total de NNA sobre el total de hectáreas'} : null;
+      }
+      var kw = BASE_P.indexOf(v.key)>=0 ? 0 : (BASE_W.indexOf(v.key)>=0 || v.key==='ise' ? KW : 1);
+      var sx = 0, sw = 0, xs = [];
+      filas.forEach(function(r){
+        var x = r.v[v.k], w = r.v[kw];
+        if(x===null || x===undefined) return;
+        xs.push(x);
+        if(w>0){ sx += x*w; sw += w; }
+      });
+      if(!sw) return null;
+      xs.sort(function(a,b){ return a-b; });
+      var med = xs.length%2 ? xs[(xs.length-1)/2] : (xs[xs.length/2-1]+xs[xs.length/2])/2;
+      return {x:sx/sw, med:med, base: kw===0 ? 'ponderado por personas' : kw===1 ? 'ponderado por viviendas' : 'ponderado por población de 18 años o más'};
+    }
+
     function leyenda(nulos, total){
       var v = st.v, h = '<h4>'+v.n+'</h4>', u = v.u;
       var f = function(x){ return x.toFixed(v.dec).replace('.',','); };
@@ -2686,6 +2716,12 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
       h += '<div class="legrow"><i style="background:'+NODATA+'"></i>Sin dato o suprimido ('+fmt(nulos)+' de '+fmt(total)+')</div>';
+      var vc = valorComunal(filasVis);
+      if(vc){
+        var donde = st.rural ? st.comuna : st.comuna+', zona urbana';
+        h += '<div class="legmedia"><span>Promedio comunal · '+donde+'</span><b>'+num(vc.x, v)+'</b>' +
+          '<small>'+vc.base+(vc.med!==undefined ? ' · mediana de los polígonos: '+num(vc.med, v) : '')+'</small></div>';
+      }
       h += '<div class="legnote">'+v.d+(v.cat ? ' Cortes calculados dentro de ' : v.pond ? ' Quintiles ponderados por la población de 18 años o más, calculados dentro de ' : ' Tramos calculados dentro de ')+st.comuna+'.'+(st.rural ? ' Las entidades rurales van con color más tenue.' : '')+'</div>';
       var vobj = boxRight.querySelector('.vobj');
       vobj.hidden = !v.cat;
@@ -2716,6 +2752,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       if(!map) return;
 
       var filas = MZ.filter(function(r){ return r.c===st.comuna && (st.rural || r.t==='M'); });
+      filasVis = filas;
       obj = calcObj(filas); // siempre (el detalle de la pestaña Socioeconómico lo muestra) y antes de contar los sin dato, porque llena v[KO]
       var vals = filas.map(function(r){ return r.v[st.v.k]; }).filter(function(x){ return x!==null && x!==undefined; });
       breaks = st.v.pond
