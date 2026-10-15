@@ -2423,7 +2423,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     var PESTANAS = [
       {id:'pob', n:'Población', nota:'Menores de 18 = 0 a 17 años. El INE publica las edades en tramos (0-5, 6-13, 14-17, 18-24), así que los de 18 años justos no se pueden separar. NNA en edad escolar = 6 a 17 años; prekínder y kínder quedan dentro del tramo 0-5. El Censo no pregunta por embarazo: el % de 0 a 5 años es lo más cercano a natalidad reciente.'},
       {id:'viv', n:'Hogar y vivienda', nota:'Hacinamiento, allegamiento, materialidad y servicios se calculan sobre las viviendas ocupadas con moradores presentes; tenencia y calefacción, sobre los hogares.'},
-      {id:'gse', n:'Socioeconómico', nota:'El índice es un proxy material y educacional por manzana, no el GSE de la AIM: el Censo no mide ingresos. Una manzana alta en el índice es una donde predomina ese perfil, no todos sus hogares.'},
+      {id:'gse', n:'Socioeconómico', nota:''},
       {id:'comp', n:'Composición', nota:'Estado civil: personas de 15 años o más. El parentesco y los hogares monoparentales no se publican por manzana (solo en el microdato, a nivel de comuna). Hogares con menores = con al menos una persona de 0 a 14 años, así lo publica el INE.'}
     ];
     var VARS = [
@@ -2529,8 +2529,10 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       PESTANAS.forEach(function(p){
         h += '<div class="vlist" data-p="'+p.id+'">';
         VARS.forEach(function(v,i){ if(v.p===p.id) h += '<button type="button" class="varbtn" data-i="'+i+'">'+v.n+'</button>'; });
-        h += '<div class="vnote">'+p.nota+'</div></div>';
+        h += (p.nota ? '<div class="vnote">'+p.nota+'</div>' : '')+'</div>';
       });
+      // resumen del filtro de nivel alto con NNA: solo se muestra con esa capa encendida
+      h += '<div class="vnote vobj" hidden></div>';
       boxRight.innerHTML = h;
       boxRight.querySelectorAll('.varbtn').forEach(function(b){
         varBtns.push(b);
@@ -2639,12 +2641,13 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       }
       h += '<div class="legrow"><i style="background:'+NODATA+'"></i>Sin dato o suprimido ('+fmt(nulos)+' de '+fmt(total)+')</div>';
       h += '<div class="legnote">'+v.d+(v.pond ? ' Quintiles ponderados por la población de 18 años o más, calculados dentro de ' : ' Tramos calculados dentro de ')+st.comuna+'.'+(st.rural ? ' Las entidades rurales van con color más tenue.' : '')+'</div>';
+      var vobj = boxRight.querySelector('.vobj');
+      vobj.hidden = !obj;
       if(obj){
-        h += '<div class="legnote" style="color:var(--ink-2);font-weight:600;margin-top:9px">Nivel alto con NNA</div>';
-        h += obj.sinIse
-          ? '<div class="legnote">No disponible en esta comuna: no tiene índice socioeconómico.</div>'
-          : '<div class="legrow"><i style="background:transparent;border:2px solid #1a1f1c"></i>'+fmt(obj.n)+' polígonos con '+fmt(obj.nna)+' NNA de 6 a 17 años ('+
-            (obj.tot ? (100*obj.nna/obj.tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(obj.tot)+' del mapa)</div>';
+        vobj.innerHTML = '<b style="color:var(--ink-2)">Nivel alto con NNA</b><br>' + (obj.sinIse
+          ? 'No disponible en esta comuna: no tiene índice socioeconómico.'
+          : fmt(obj.n)+' polígonos con '+fmt(obj.nna)+' NNA de 6 a 17 años ('+
+            (obj.tot ? (100*obj.nna/obj.tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(obj.tot)+' del mapa)');
       }
       if(st.colegios){
         h += '<div class="legnote" style="color:var(--ink-2);font-weight:600;margin-top:9px">Colegios 2025</div>';
