@@ -974,6 +974,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .nivel-row{margin:2px 0 8px}
 .notas-niveles{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .notas-niveles .depe-note{margin:0;font-style:normal}
+#general .card .sub,#establecimientos .card .sub{max-width:none}
 .nobase-note{position:absolute;left:58px;bottom:10px;z-index:450;background:var(--surface);border:1px solid var(--line);padding:5px 9px;font-size:11px;color:var(--ink-3);border-radius:2px;max-width:55%}
 </style>
 
@@ -1012,9 +1013,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
     <div class="card" id="panel-depe"></div>
   </div>
   <div class="notas-niveles">
-    <p class="depe-note"><b>Tramo regular.</b> Ense&ntilde;anza b&aacute;sica regular (1&deg; a 8&deg; b&aacute;sico) y ense&ntilde;anza media regular para j&oacute;venes (1&deg; a 4&deg; medio), cient&iacute;fico-humanista y t&eacute;cnico-profesional. Es lo que se muestra por defecto y el mismo universo de la secci&oacute;n de migraci&oacute;n, porque son los alumnos que se pueden seguir de un a&ntilde;o a otro.</p>
-    <p class="depe-note"><b>Lo que queda fuera por defecto</b> (se suma con los botones &ldquo;Incluir tambi&eacute;n&rdquo;). <i>Educaci&oacute;n parvularia:</i> sobre todo prek&iacute;nder y k&iacute;nder dentro de colegios, m&aacute;s algunos niveles medios; los jardines JUNJI e Integra casi no aparecen en estos registros. <i>Educaci&oacute;n especial:</i> escuelas y cursos especiales; la mayor parte son escuelas de lenguaje, con ni&ntilde;os de 3 a 5 a&ntilde;os. <i>Educaci&oacute;n de adultos:</i> b&aacute;sica y media para adultos, incluida la t&eacute;cnico-profesional.</p>
-    <p class="depe-note"><b>Dependencia.</b> Municipal / SLEP: colegios p&uacute;blicos, administrados por el municipio o por un Servicio Local de Educaci&oacute;n P&uacute;blica. Part. subvencionado: privados que reciben subvenci&oacute;n del Estado. Part. pagado: privados sin subvenci&oacute;n, financiados por las familias. Adm. delegada: liceos t&eacute;cnico-profesionales p&uacute;blicos administrados por una corporaci&oacute;n privada; en la regi&oacute;n solo hay uno, en R&iacute;o Negro, y aparece solo al elegir esa comuna o la regi&oacute;n.</p>
+    <p class="depe-note"><b>Tramo regular:</b> Ense&ntilde;anza b&aacute;sica regular (1&deg; a 8&deg; b&aacute;sico) y ense&ntilde;anza media regular para j&oacute;venes (1&deg; a 4&deg; medio), cient&iacute;fico-humanista y t&eacute;cnico-profesional.</p>
   </div>
 </section>
 
@@ -1495,15 +1494,42 @@ function nivelToggles(sel, onChange){
   return row;
 }
 
+// selector de las secciones 01 y 02: Puerto Varas, las 3 comunas más próximas y el total regional como botones;
+// las demás comunas de Los Lagos en una lista desplegable
+var CERCANAS = ['Puerto Varas','Llanquihue','Puerto Montt','Frutillar','Región de Los Lagos'];
+var CERCANAS_COLOR = {'Puerto Varas':'--c-pv','Llanquihue':'--c-os','Puerto Montt':'--c-pm','Frutillar':'--c-fr','Región de Los Lagos':'--ink-2'};
+function pickerCercanas(initial, onChange){
+  var row = heln('div',{class:'switcher picker'}), pills = {};
+  CERCANAS.forEach(function(c){
+    var b = heln('button',{class:'pillmini',type:'button'});
+    b.style.setProperty('--dotc','var('+CERCANAS_COLOR[c]+')');
+    b.appendChild(heln('span',{class:'dot'})); b.appendChild(document.createTextNode(c));
+    b.addEventListener('click',function(){ marcar(c); onChange(c); });
+    pills[c] = b; row.appendChild(b);
+  });
+  var sel = heln('select',{class:'comsel','aria-label':'Otra comuna de la Región de Los Lagos'});
+  var o0 = heln('option',{value:''}); o0.textContent = 'Otra comuna…'; sel.appendChild(o0);
+  COMUNAS_REGION.filter(function(c){ return CERCANAS.indexOf(c)<0; }).forEach(function(c){ var o = heln('option',{value:c}); o.textContent = c; sel.appendChild(o); });
+  sel.addEventListener('change',function(){ if(!sel.value) return; marcar(sel.value); onChange(sel.value); });
+  function marcar(c){
+    Object.keys(pills).forEach(function(k){ pills[k].setAttribute('aria-pressed', k===c?'true':'false'); });
+    sel.value = pills[c] ? '' : c;
+    sel.classList.toggle('on', !pills[c]);
+  }
+  row.appendChild(sel);
+  marcar(initial);
+  return row;
+}
+
 // tarjeta con selector de comuna (incluida la región), botones de niveles, gráfico y tabla
 function makeNivelPanel(mountId, opts){
   var mount = document.getElementById(mountId); if(!mount) return;
-  var sel = {}, comuna = opts.initial || DEFAULT_COMUNA;
+  var sel = {}, comuna = DEFAULT_COMUNA;
   var head = heln('div',{class:'card-head'});
   var tw = heln('div'); var h3 = heln('h3'); tw.appendChild(h3);
   var sub = heln('div',{class:'sub'}); tw.appendChild(sub);
   head.appendChild(tw); var statBox = heln('div',{class:'stat'}); head.appendChild(statBox); mount.appendChild(head);
-  var picker = comunaPicker(comuna, function(c){ comuna = c; render(); }, true, opts.extraPill);
+  var picker = pickerCercanas(comuna, function(c){ comuna = c; render(); });
   var viewBtn = heln('button',{class:'viewbtn',type:'button'}); viewBtn.textContent = 'Ver tabla';
   picker.appendChild(viewBtn);
   mount.appendChild(picker);
@@ -1521,7 +1547,7 @@ function makeNivelPanel(mountId, opts){
   function render(){
     var r = opts.compute(comuna, sel);
     h3.textContent = opts.title(comuna);
-    sub.textContent = (opts.sub ? opts.sub + ' · ' : '') + nivelTexto(sel);
+    sub.textContent = opts.sub(sel);
     legendHost.innerHTML = ''; legendHost.appendChild(legendRow(r.order, r.colorMap));
     if(r.type==='line') lineChart(chartHost, r.data, r.order, YEARS11, r.colorMap);
     else stackedBarChart(chartHost, r.data, r.order, YEARS11, r.colorMap);
@@ -1541,32 +1567,33 @@ function depData(comuna, sel){
   return {data:data, order:order};
 }
 
+// texto de los niveles incluidos, para las bajadas
+function nivelBajada(sel){
+  var ex = NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return n[1].replace('Educación ','').toLowerCase(); });
+  return 'de 1° básico a 4° medio' + (ex.length ? ', más ' + ex.join(', ').replace(/, ([^,]*)$/, ' y $1') : '');
+}
+
 makeNivelPanel('panel-headline',{
-  extraPill: ESTUDIO_TODAS, initial: ESTUDIO_TODAS,
-  title:function(c){ return c===ESTUDIO_TODAS ? 'Matrícula total por comuna' : 'Matrícula total, '+c; },
-  sub:'Todas las dependencias',
+  title:function(c){ return 'Matrícula total por comuna, '+c; },
+  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'.'; },
   compute:function(c, sel){
-    if(c===ESTUDIO_TODAS){
-      var d = {}; COMUNAS.forEach(function(x){ d[x] = matTotal(x, sel); });
-      return {data:d, order:COMUNAS, colorMap:COMUNA_COLOR, type:'line'};
-    }
-    var cm = {}; cm[c] = COMUNA_COLOR[c] || '--c-pv';
+    var cm = {}; cm[c] = CERCANAS_COLOR[c] || '--c-pv';
     var d1 = {}; d1[c] = matTotal(c, sel);
     return {data:d1, order:[c], colorMap:cm, type:'line'};
   },
-  stat:function(r, c){ if(c===ESTUDIO_TODAS) return null; var v = r.data[c]; return {value:fmt(v[v.length-1]), label:'matrícula 2025'}; }
+  stat:function(r, c){ var v = r.data[c]; return {value:fmt(v[v.length-1]), label:'matrícula 2025'}; }
 });
 
 makeNivelPanel('panel-depe',{
-  title:function(c){ return 'Matrícula por dependencia, '+c; },
-  sub:'Municipal y SLEP juntos (ver nota al pie)',
+  title:function(c){ return 'Matrícula total por tipo de dependencia, '+c; },
+  sub:function(sel){ return 'En cada tipo de colegio (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'.'; },
   compute:function(c, sel){ var r = depData(c, sel); r.colorMap = DEPE_COLOR; r.type = 'line'; return r; },
   stat:function(r){ var v = r.data['Part. Pagado']; return {value:fmt(v[v.length-1]), label:'part. pagado 2025'}; }
 });
 
 makeNivelPanel('panel-estabdepe',{
-  title:function(c){ return 'Colegios por dependencia, '+c; },
-  sub:'Colegios con matrícula en los niveles elegidos',
+  title:function(c){ return 'Colegios por tipo de dependencia, '+c; },
+  sub:function(sel){ return 'Colegios con alumnos matriculados '+nivelBajada(sel)+'.'; },
   compute:function(c, sel){
     var nom = {}; DEPN.forEach(function(dp){ nom[dp[0]] = dp[1]; });
     var cnt = contarColegios(c, sel, function(dep){ return nom[dep]; });
@@ -1579,7 +1606,7 @@ makeNivelPanel('panel-estabdepe',{
 
 makeNivelPanel('panel-estabrural',{
   title:function(c){ return 'Colegios urbanos y rurales, '+c; },
-  sub:'Colegios con matrícula en los niveles elegidos',
+  sub:function(sel){ return 'Colegios con alumnos matriculados '+nivelBajada(sel)+', según su ubicación.'; },
   compute:function(c, sel){
     var cnt = contarColegios(c, sel, function(dep, rural){ return rural ? 'Rural' : 'Urbano'; });
     ['Urbano','Rural'].forEach(function(k){ cnt[k] = cnt[k] || YEARS11.map(function(){ return 0; }); });
@@ -2295,7 +2322,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
 (function(){
   var txt = '<b>Dependencia Municipal / SLEP.</b> Hasta 2020 los colegios públicos de Puerto Varas y Frutillar eran de dependencia Municipal; desde 2021 pasaron a los Servicios Locales de Educación Pública (SLEP). En Puerto Montt y Osorno siguen siendo Municipales en todo el período. Para efectos de este informe se tratan como dependencias homólogas y se muestran juntas como Municipal / SLEP.';
   var txtExtra = '<b>Parvularia y educación de adultos, fuera del filtro.</b> La mayoría de los jardines infantiles independientes (JUNJI, Fundación Integra, salas cuna privadas) casi no figura con matrícula en los archivos de Mineduc usados aquí; cuando aparecen, traen 0 alumnos. La parvularia con matrícula real casi siempre está integrada dentro de un colegio con básica y media, contada en su matrícula total. Con la educación de adultos pasa algo parecido: casi no hay colegios exclusivamente de adultos (solo 8 en las 4 comunas), porque la mayoría son cursos vespertinos dentro de liceos regulares (por ejemplo el Liceo Andrés Bello de Puerto Montt combina alumnos regulares y de adultos bajo el mismo RBD), así que su matrícula queda dentro del colegio regular y no se puede aislar. Por eso este informe deja fuera ambas categorías y muestra solo educación especial como filtro adicional.';
-  ['general','establecimientos','migracion'].forEach(function(id){
+  ['migracion'].forEach(function(id){
     var s = document.getElementById(id); if(!s) return;
     var p = document.createElement('p'); p.className = 'depe-note'; p.innerHTML = txt; s.appendChild(p);
   });
