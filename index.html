@@ -1860,12 +1860,14 @@ makePanel('panel-flow',{
   var mount = document.getElementById('panel-cohortes'); if(!mount) return;
   var REG = 'Región de Los Lagos';
   var DEPS = [['T','Todas',null],['M','Municipal / SLEP','--c-pv'],['S','Part. Subvencionado','--c-pm'],['P','Part. Pagado','--c-fr']];
-  // índice en cada fila de COHORTES: [año de llegada, ll, or, sr, ce]
+  // índice en cada fila de COHORTES: [año de llegada, ll, or, sr (otros cursos), ce, ib (1° básico), ip (parvularia)]
   function cats(esReg){
     var lugar = esReg ? 'la región' : 'la comuna';
     return [
       {k:4, n:'En '+lugar+' desde 2014 o antes', c:'--c-pv'},
-      {k:3, n:'Sin registro previo', c:'--c-extra'},
+      {k:6, n:'Comenzó en parvularia o escuela de lenguaje', c:'--ink-3'},
+      {k:5, n:'Ingresó a 1° básico en '+lugar, c:'--c-fr'},
+      {k:3, n:'Sin registro previo, otros cursos', c:'--c-extra'},
       {k:1, n:'Llegó desde otra comuna de Los Lagos', c:'--c-pm', comuna:true},
       {k:2, n:'Llegó desde otra región', c:'--c-os'}
     ].filter(function(x){ return !(esReg && x.comuna); });
@@ -1911,7 +1913,9 @@ makePanel('panel-flow',{
   var accBody = heln('div',{class:'acc-body'}); acc.appendChild(accBody);
   mount.appendChild(acc);
   var notaDef = heln('p',{class:'depe-note torta-tramo'});
-  notaDef.innerHTML = '<b>Año de llegada.</b> Primer año del período continuo más reciente en que el alumno estuvo matriculado, en cualquier nivel (incluida parvularia), en un colegio de la comuna. Si se fue y volvió, cuenta la última llegada. Los datos parten en 2014, por eso quien está desde entonces aparece como &ldquo;2014 o antes&rdquo;. <b>Sin registro previo</b>: el año anterior a su llegada no estaba en ningún colegio de Chile; son sobre todo niños que comenzaron su escolaridad en la comuna, además de quienes llegaron del extranjero o volvieron al sistema.';
+  notaDef.innerHTML = '<b>Cómo se lee.</b> Cada barra es una parte de la matrícula del año elegido (1° básico a 4° medio), según el año en que esos alumnos llegaron a la comuna y siguieron ahí sin interrupción. Por ejemplo, en Puerto Varas 2025 la barra &ldquo;≤2014&rdquo; (15,1%) son alumnos matriculados en 2025 que estaban en colegios de la comuna todos los años desde 2014 o antes, en cualquier nivel; la barra 2022 (13,2%) son los matriculados en 2025 que llegaron en 2022 y no se han ido. Las barras suman el 100% de la matrícula del año elegido; no siguen a una generación de edad. ' +
+    '<b>Año de llegada:</b> primer año del período continuo más reciente en que el alumno estuvo matriculado, en cualquier nivel (incluida parvularia), en un colegio de la comuna; si se fue y volvió, cuenta la última llegada. Los datos parten en 2014. ' +
+    '<b>Sin registro previo:</b> el año anterior a su llegada no estaba en ningún colegio de Chile. Se separa según el curso con que aparece por primera vez: parvularia o escuela de lenguaje (comenzó su escolaridad en la comuna), 1° básico, u otros cursos (llegó del extranjero, volvió al sistema o su colegio recién empezó a informar a Mineduc).';
   mount.appendChild(notaDef);
 
   var NS = 'http://www.w3.org/2000/svg';
@@ -1924,12 +1928,12 @@ makePanel('panel-flow',{
     Object.keys(porDep).forEach(function(dk){
       if(dep!=='T' && dk!==dep) return;
       porDep[dk].forEach(function(r){
-        var a = acc[r[0]] || (acc[r[0]] = [r[0],0,0,0,0]);
-        for(var j=1;j<5;j++) a[j] += r[j];
+        var a = acc[r[0]] || (acc[r[0]] = [r[0],0,0,0,0,0,0]);
+        for(var j=1;j<7;j++) a[j] += (r[j]||0);
       });
     });
     var out = [];
-    for(var y=2014; y<=anio; y++) out.push(acc[y] || [y,0,0,0,0]);
+    for(var y=2014; y<=anio; y++) out.push(acc[y] || [y,0,0,0,0,0,0]);
     return out;
   }
   function origenes(tipo){
