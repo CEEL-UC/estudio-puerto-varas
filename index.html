@@ -2378,10 +2378,6 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
 (function(){
   var txt = '<b>Dependencia Municipal / SLEP.</b> Hasta 2020 los colegios públicos de Puerto Varas y Frutillar eran de dependencia Municipal; desde 2021 pasaron a los Servicios Locales de Educación Pública (SLEP). En Puerto Montt y Osorno siguen siendo Municipales en todo el período. Para efectos de este informe se tratan como dependencias homólogas y se muestran juntas como Municipal / SLEP.';
   var txtExtra = '<b>Parvularia y educación de adultos, fuera del filtro.</b> La mayoría de los jardines infantiles independientes (JUNJI, Fundación Integra, salas cuna privadas) casi no figura con matrícula en los archivos de Mineduc usados aquí; cuando aparecen, traen 0 alumnos. La parvularia con matrícula real casi siempre está integrada dentro de un colegio con básica y media, contada en su matrícula total. Con la educación de adultos pasa algo parecido: casi no hay colegios exclusivamente de adultos (solo 8 en las 4 comunas), porque la mayoría son cursos vespertinos dentro de liceos regulares (por ejemplo el Liceo Andrés Bello de Puerto Montt combina alumnos regulares y de adultos bajo el mismo RBD), así que su matrícula queda dentro del colegio regular y no se puede aislar. Por eso este informe deja fuera ambas categorías y muestra solo educación especial como filtro adicional.';
-  ['migracion'].forEach(function(id){
-    var s = document.getElementById(id); if(!s) return;
-    var p = document.createElement('p'); p.className = 'depe-note'; p.innerHTML = txt; s.appendChild(p);
-  });
   var m = document.getElementById('panel-mapa');
   if(m){
     var p2 = document.createElement('p'); p2.className = 'depe-note'; p2.innerHTML = txt + ' Cada colegio se muestra con la dependencia que tenía en el año seleccionado.'; m.appendChild(p2);
