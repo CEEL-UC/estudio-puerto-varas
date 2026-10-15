@@ -975,6 +975,14 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .notas-niveles{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .notas-niveles .depe-note{margin:0;font-style:normal}
 #general .card .sub,#establecimientos .card .sub{max-width:none}
+.nivel-row{flex-wrap:nowrap;gap:5px}
+.nivel-row .extra-lbl{font-size:10px;white-space:nowrap}
+.nivel-row .extra-legend-item{font-size:11px;padding:2px 8px;gap:5px;white-space:nowrap}
+.nivel-row .extra-legend-item .sq{width:8px;height:8px}
+.chips{display:inline-flex;flex-wrap:wrap;gap:4px}
+.chip{border:1.5px solid var(--ink-3);background:transparent;color:var(--ink);font:600 11px "IBM Plex Sans",sans-serif;padding:3px 7px;border-radius:2px;cursor:pointer}
+.chip b{color:var(--ink-3);margin-left:3px}
+.chip:hover b{color:var(--c-os)}
 .nobase-note{position:absolute;left:58px;bottom:10px;z-index:450;background:var(--surface);border:1px solid var(--line);padding:5px 9px;font-size:11px;color:var(--ink-3);border-radius:2px;max-width:55%}
 </style>
 
@@ -1447,7 +1455,7 @@ function makePanel(mountId, opts){
 var DEFAULT_COMUNA = 'Puerto Varas';
 
 // ================= secciones 01 y 02: por defecto solo el tramo regular; botones para sumar otros niveles =================
-var NIVEL_EXTRA = [['par','Educación parvularia'],['esp','Educación especial'],['adu','Educación de adultos']];
+var NIVEL_EXTRA = [['par','Parvularia'],['esp','Especial'],['adu','Adultos']];
 var NIVEL_BIT = {reg:1, par:2, esp:4, adu:8};
 var DEPN = [['M','Municipal / SLEP'],['S','Part. Subvencionado'],['P','Part. Pagado'],['C','Adm. delegada']];
 DEPE_COLOR['Adm. delegada'] = '--ink-3';
@@ -1456,7 +1464,7 @@ var ESTUDIO_TODAS = 'Comunas del estudio';
 function nivelesActivos(sel){ return ['reg'].concat(NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return n[0]; })); }
 function nivelMask(sel){ return nivelesActivos(sel).reduce(function(m,n){ return m | NIVEL_BIT[n]; }, 0); }
 function nivelTexto(sel){
-  var ex = NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return n[1].replace('Educación ','').toLowerCase(); });
+  var ex = NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return n[1].toLowerCase(); });
   return 'Tramo regular (1° básico a 4° medio)' + (ex.length ? ' + ' + ex.join(' + ') : '');
 }
 function matDep(comuna, dk, sel){
@@ -1521,15 +1529,59 @@ function pickerCercanas(initial, onChange){
   return row;
 }
 
+// selector múltiple: botones que se prenden y apagan + lista para sumar otras comunas (aparecen como etiquetas con ×).
+// La región no se combina con comunas: al elegirla se apaga lo demás, y al elegir una comuna se apaga la región.
+var EXTRA_COLORES = ['--c-extra','--ink-3','--ink-2','--c-os','--c-pm','--c-fr'];
+function multiPickerCercanas(lista, onChange){
+  var REG = 'Región de Los Lagos';
+  var row = heln('div',{class:'switcher picker'}), pills = {};
+  CERCANAS.forEach(function(c){
+    var b = heln('button',{class:'pillmini',type:'button'});
+    b.style.setProperty('--dotc','var('+CERCANAS_COLOR[c]+')');
+    b.appendChild(heln('span',{class:'dot'})); b.appendChild(document.createTextNode(c));
+    b.addEventListener('click',function(){ alternar(c); });
+    pills[c] = b; row.appendChild(b);
+  });
+  var sel = heln('select',{class:'comsel','aria-label':'Sumar otra comuna de la Región de Los Lagos'});
+  var o0 = heln('option',{value:''}); o0.textContent = 'Sumar otra comuna…'; sel.appendChild(o0);
+  COMUNAS_REGION.filter(function(c){ return CERCANAS.indexOf(c)<0; }).forEach(function(c){ var o = heln('option',{value:c}); o.textContent = c; sel.appendChild(o); });
+  sel.addEventListener('change',function(){ if(sel.value && lista.indexOf(sel.value)<0) alternar(sel.value); sel.value = ''; });
+  row.appendChild(sel);
+  var chips = heln('span',{class:'chips'}); row.appendChild(chips);
+  function alternar(c){
+    var i = lista.indexOf(c);
+    if(c===REG){ lista.length = 0; lista.push(REG); }
+    else if(i>=0){ if(lista.length>1) lista.splice(i,1); }
+    else { var r = lista.indexOf(REG); if(r>=0) lista.splice(r,1); lista.push(c); }
+    pintar(); onChange();
+  }
+  function pintar(){
+    Object.keys(pills).forEach(function(k){ pills[k].setAttribute('aria-pressed', lista.indexOf(k)>=0?'true':'false'); });
+    chips.innerHTML = '';
+    lista.filter(function(c){ return !pills[c]; }).forEach(function(c){
+      var ch = heln('button',{class:'chip',type:'button',title:'Quitar '+c}); ch.innerHTML = c+' <b>&times;</b>';
+      ch.addEventListener('click',function(){ alternar(c); });
+      chips.appendChild(ch);
+    });
+  }
+  pintar();
+  return row;
+}
+function colorComuna(c, lista){
+  if(CERCANAS_COLOR[c]) return CERCANAS_COLOR[c];
+  var extras = lista.filter(function(x){ return !CERCANAS_COLOR[x]; });
+  return EXTRA_COLORES[extras.indexOf(c) % EXTRA_COLORES.length];
+}
+
 // tarjeta con selector de comuna (incluida la región), botones de niveles, gráfico y tabla
 function makeNivelPanel(mountId, opts){
   var mount = document.getElementById(mountId); if(!mount) return;
-  var sel = {}, comuna = DEFAULT_COMUNA;
+  var sel = {}, comuna = opts.multi ? [DEFAULT_COMUNA] : DEFAULT_COMUNA;
   var head = heln('div',{class:'card-head'});
   var tw = heln('div'); var h3 = heln('h3'); tw.appendChild(h3);
   var sub = heln('div',{class:'sub'}); tw.appendChild(sub);
   head.appendChild(tw); var statBox = heln('div',{class:'stat'}); head.appendChild(statBox); mount.appendChild(head);
-  var picker = pickerCercanas(comuna, function(c){ comuna = c; render(); });
+  var picker = opts.multi ? multiPickerCercanas(comuna, render) : pickerCercanas(comuna, function(c){ comuna = c; render(); });
   var viewBtn = heln('button',{class:'viewbtn',type:'button'}); viewBtn.textContent = 'Ver tabla';
   picker.appendChild(viewBtn);
   mount.appendChild(picker);
@@ -1569,19 +1621,20 @@ function depData(comuna, sel){
 
 // texto de los niveles incluidos, para las bajadas
 function nivelBajada(sel){
-  var ex = NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return n[1].replace('Educación ','').toLowerCase(); });
+  var ex = NIVEL_EXTRA.filter(function(n){ return sel[n[0]]; }).map(function(n){ return 'educación ' + n[1].toLowerCase(); });
   return 'de 1° básico a 4° medio' + (ex.length ? ', más ' + ex.join(', ').replace(/, ([^,]*)$/, ' y $1') : '');
 }
 
 makeNivelPanel('panel-headline',{
-  title:function(c){ return 'Matrícula total por comuna, '+c; },
-  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'.'; },
-  compute:function(c, sel){
-    var cm = {}; cm[c] = CERCANAS_COLOR[c] || '--c-pv';
-    var d1 = {}; d1[c] = matTotal(c, sel);
-    return {data:d1, order:[c], colorMap:cm, type:'line'};
+  multi:true,
+  title:function(cs){ return 'Matrícula total por comuna, '+(cs.length===1 ? cs[0] : cs.slice(0,-1).join(', ')+' y '+cs[cs.length-1]); },
+  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'. Puedes elegir varias comunas y se suman en el gráfico.'; },
+  compute:function(cs, sel){
+    var d = {}, cm = {};
+    cs.forEach(function(c){ d[c] = matTotal(c, sel); cm[c] = colorComuna(c, cs); });
+    return {data:d, order:cs.slice(), colorMap:cm, type:'bar'};
   },
-  stat:function(r, c){ var v = r.data[c]; return {value:fmt(v[v.length-1]), label:'matrícula 2025'}; }
+  stat:function(r, cs){ var tot = 0; cs.forEach(function(c){ tot += r.data[c][r.data[c].length-1]; }); return {value:fmt(tot), label:'matrícula 2025'+(cs.length>1?' (suma)':'')}; }
 });
 
 makeNivelPanel('panel-depe',{
