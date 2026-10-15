@@ -1040,7 +1040,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 
 <section id="migracion">
   <div class="sectionhead"><span class="num">03</span><h2>Migraci&oacute;n estudiantil</h2></div>
-  <p class="lede">Se sigue al mismo alumno a trav&eacute;s de los a&ntilde;os con su identificador enmascarado (mrun), en todos los colegios de Chile, para saber d&oacute;nde estaba matriculado el a&ntilde;o anterior y d&oacute;nde est&aacute; el siguiente. La &oacute;ptica es la Regi&oacute;n de Los Lagos: cada gr&aacute;fico permite elegir cualquiera de sus 30 comunas, con Puerto Varas por defecto. Solo se mide el tramo regular, 1&deg; b&aacute;sico a 4&deg; medio.</p>
+  <p class="lede">D&oacute;nde estaba matriculado cada alumno el a&ntilde;o anterior y d&oacute;nde est&aacute; el siguiente. Regi&oacute;n de Los Lagos, tramo regular de 1&deg; b&aacute;sico a 4&deg; medio.</p>
 
   <div class="glossary">
     <div class="gterm"><b>Se mantiene</b><span>Alumno que el a&ntilde;o anterior estaba matriculado en un colegio de la misma comuna.</span></div>
@@ -1073,7 +1073,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
     </div>
   </div>
   <div class="tabpane" id="pane-censo" role="tabpanel" aria-labelledby="tab-censo" hidden>
-    <p class="lede">Cada pol&iacute;gono es una manzana urbana o una entidad rural del Censo 2024, con los datos que publica el INE a ese nivel. Elige un indicador en el cuadro de la derecha y pasa el cursor sobre una manzana para ver su detalle. Los colores dividen las manzanas de la comuna elegida en cinco grupos con m&aacute;s o menos la misma cantidad de manzanas (menos grupos si muchas tienen el mismo valor).</p>
+    <p class="lede">Indicadores del Censo 2024 por manzana urbana y entidad rural. Los colores dividen los pol&iacute;gonos de la comuna en cinco grupos de tama&ntilde;o parecido.</p>
     <div class="grid">
       <div class="card mapcard" id="panel-censo"></div>
     </div>
@@ -1635,7 +1635,7 @@ function nivelBajada(sel){
 makeNivelPanel('panel-headline',{
   multi:true,
   title:function(cs){ return 'Matrícula total por comuna, '+(cs.length===1 ? cs[0] : cs.slice(0,-1).join(', ')+' y '+cs[cs.length-1]); },
-  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'. Puedes elegir varias comunas para compararlas.'; },
+  sub:function(sel){ return 'Alumnos matriculados '+nivelBajada(sel)+', todas las dependencias.'; },
   compute:function(cs, sel){
     var d = {}, cm = {};
     cs.forEach(function(c){ d[c] = matTotal(c, sel); cm[c] = colorComuna(c, cs); });
@@ -1646,7 +1646,7 @@ makeNivelPanel('panel-headline',{
 
 makeNivelPanel('panel-depe',{
   title:function(c){ return 'Matrícula total por tipo de dependencia, '+c; },
-  sub:function(sel){ return 'En cada tipo de colegio (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'.'; },
+  sub:function(sel){ return 'Alumnos matriculados '+nivelBajada(sel)+', por tipo de colegio.'; },
   compute:function(c, sel){ var r = depData(c, sel); r.colorMap = DEPE_COLOR; r.type = 'line'; return r; },
   stat:function(r){ var v = r.data['Part. Pagado']; return {value:fmt(v[v.length-1]), label:'part. pagado 2025'}; }
 });
@@ -1676,22 +1676,22 @@ makeNivelPanel('panel-estabrural',{
 });
 
 makePanel('panel-entrada',{
-  title:function(c){ return 'Entradas por dependencia, '+c; },
-  sub:'Alumnos del tramo regular que el año anterior no estaban en la comuna, por tipo de colegio al que entraron',
+  title:function(c){ return 'Alumnos que entran a la comuna, por dependencia, '+c; },
+  sub:'Alumnos que el año anterior no estaban en la comuna, según el tipo de colegio al que llegaron.',
   region:true, dataAll:migEntrada, perComuna:true, order:depeOrder, colorMap:DEPE_COLOR, years:YEARS11, type:'bar', initial:DEFAULT_COMUNA,
   stat:function(d){ var tot=0; depeOrder.forEach(function(k){ tot+=(d[k][d[k].length-1]||0); }); return {value:tot, label:'entradas 2025'}; }
 });
 
 makePanel('panel-origen',{
-  title:function(c){ return 'De dónde vienen los que entran, '+c; },
-  sub:'Según dónde estaba matriculado el alumno el año anterior',
+  title:function(c){ return 'Procedencia de los alumnos que entran a la comuna, '+c; },
+  sub:'Dónde estaban matriculados el año anterior.',
   region:true, dataAll:migOrigen, perComuna:true, order:['Entrante de otra comuna de Los Lagos','Entrante de otra región','Sin registro el año anterior'], colorMap:ORIGEN_COLOR, years:YEARS11, type:'area', initial:DEFAULT_COMUNA,
   stat:function(d){ var n=d['Entrante de otra región'].length-1, tot=0; ['Entrante de otra comuna de Los Lagos','Entrante de otra región','Sin registro el año anterior'].forEach(function(k){tot+=d[k][n];}); return {value:Math.round(100*d['Entrante de otra región'][n]/tot)+'%', label:'de otra región, 2025'}; }
 });
 
 makePanel('panel-flow',{
-  title:function(c){ return 'Se mantiene, entra, ingresa y sale, '+c; },
-  sub:'Barras: matrícula del tramo regular según dónde estaba el año anterior · línea punteada: salidas al año siguiente',
+  title:function(c){ return 'Matrícula por procedencia y salidas, '+c; },
+  sub:'Barras: alumnos según dónde estaban el año anterior. Línea punteada: alumnos que dejan la comuna al año siguiente.',
   region:true, cw:1000, dataAll:migFlow, perComuna:true, order:FLOW_ORDER, colorMap:FLOW_COLOR, years:YEARS11, initial:DEFAULT_COMUNA,
   overlayKey:'Salidas', overlayLabel:'Salidas',
   stat:function(d){ var v=d['Salidas']; var last=null; for(var i=v.length-1;i>=0;i--){ if(v[i]!=null){last=v[i];break;} } return {value:fmt(last), label:'salidas 2024'}; }
@@ -1711,7 +1711,7 @@ makePanel('panel-flow',{
 
   var head = heln('div',{class:'card-head'});
   var tw = heln('div'); var h3 = heln('h3'); tw.appendChild(h3);
-  var sub = heln('div',{class:'sub'}); sub.textContent = 'Matrícula del tramo regular según dónde estaba el año anterior. Toca la leyenda para mostrar u ocultar categorías.'; tw.appendChild(sub);
+  var sub = heln('div',{class:'sub'}); sub.textContent = 'Alumnos de 1° básico a 4° medio según dónde estaban matriculados el año anterior.'; tw.appendChild(sub);
   head.appendChild(tw); var statBox = heln('div',{class:'stat'}); head.appendChild(statBox); mount.appendChild(head);
   var wrap = heln('div',{class:'torta-wrap'});
   var svgHost = heln('div',{class:'torta-svg'}), side = heln('div',{class:'torta-side'}), leg = heln('div',{class:'torta-leg'});
@@ -1800,7 +1800,7 @@ makePanel('panel-flow',{
     var data = datos();
     var i = YEARS11.indexOf(anio);
     var depNom = DEPS.filter(function(d){ return d[0]===dep; })[0][1];
-    h3.textContent = 'De dónde viene la matrícula, '+comuna+' '+anio+(dep==='T' ? '' : ' · '+depNom);
+    h3.textContent = 'Procedencia de la matrícula, '+comuna+' '+anio+(dep==='T' ? '' : ' · '+depNom);
     Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
     var vals = cats.map(function(k){ return (data[k] && data[k][i]) || 0; });
@@ -2067,7 +2067,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
   var titleWrap = heln('div');
   var h3 = heln('h3'); h3.textContent = 'Colegios y migración, ' + comunaSel;
   titleWrap.appendChild(h3);
-  var sub = heln('div',{class:'sub'}); sub.textContent = 'Cada pin es un colegio con matrícula ese año, del color de su dependencia';
+  var sub = heln('div',{class:'sub'}); sub.textContent = 'Cada pin es un colegio con matrícula ese año, del color de su dependencia.';
   titleWrap.appendChild(sub);
   head.appendChild(titleWrap);
   mount.appendChild(head);
@@ -2489,7 +2489,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // ---- encabezado y controles (mismo lenguaje visual que el mapa de colegios)
     var head = heln('div',{class:'card-head'});
     var tw = heln('div'); var h3 = heln('h3'); tw.appendChild(h3);
-    var sub = heln('div',{class:'sub'}); sub.textContent = 'Manzanas urbanas y entidades rurales (INE)'; tw.appendChild(sub);
+    var sub = heln('div',{class:'sub'}); sub.textContent = 'Manzanas urbanas y entidades rurales, Censo de Población y Vivienda 2024 (INE).'; tw.appendChild(sub);
     head.appendChild(tw); mount.appendChild(head);
 
     // las 30 comunas de Los Lagos: Puerto Varas como botón y el resto en la lista (mismo selector que migración)
