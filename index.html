@@ -1914,6 +1914,9 @@ makePanel('panel-flow',{
   var accSum = heln('summary'); acc.appendChild(accSum);
   var accBody = heln('div',{class:'acc-body'}); acc.appendChild(accBody);
   mount.appendChild(acc);
+  var notaSR = heln('p',{class:'depe-note torta-tramo'});
+  notaSR.innerHTML = '<b>Sin registro previo, otros cursos:</b> alumnos que aparecen por primera vez en el sistema escolar en 2° básico o más. Puede deberse a que llegaron del extranjero, a que su colegio recién empezó a informar a Mineduc, a que volvieron tras estar fuera del sistema o a un cambio de su identificador (alumnos extranjeros que obtienen RUN).';
+  mount.appendChild(notaSR);
 
   var NS = 'http://www.w3.org/2000/svg';
   function sv(tag, a){ var e = document.createElementNS(NS, tag); for(var k in a) e.setAttribute(k, a[k]); return e; }
