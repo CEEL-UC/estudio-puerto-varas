@@ -1424,7 +1424,23 @@ function makePanel(mountId, opts){
   mount.appendChild(switchRow);
 
   var legendHost = heln('div'); mount.appendChild(legendHost);
-  if(opts.showLegend!==false) legendHost.appendChild(legendRow(opts.order,opts.colorMap));
+  var ocultas = {}, comunaAct = opts.initial;
+  if(opts.toggle){
+    // leyenda que prende y apaga series (mismo estilo que el filtro de dependencias del mapa)
+    var lg = heln('div',{class:'map-legend'});
+    opts.order.forEach(function(k){
+      var b = heln('button',{class:'map-legend-item',type:'button','aria-pressed':'true'});
+      b.style.setProperty('--dotc','var('+opts.colorMap[k]+')');
+      b.appendChild(heln('span',{class:'sq'})); b.appendChild(document.createTextNode(k));
+      b.addEventListener('click',function(){
+        var visibles = opts.order.filter(function(x){ return !ocultas[x]; });
+        if(!ocultas[k] && visibles.length===1) return; // siempre queda al menos una
+        ocultas[k] = !ocultas[k]; b.setAttribute('aria-pressed', ocultas[k]?'false':'true'); render(comunaAct);
+      });
+      lg.appendChild(b);
+    });
+    legendHost.appendChild(lg);
+  } else if(opts.showLegend!==false) legendHost.appendChild(legendRow(opts.order,opts.colorMap));
 
   var chartHost = heln('div'); mount.appendChild(chartHost);
   var tableHost = heln('div'); tableHost.style.display='none'; mount.appendChild(tableHost);
@@ -1437,19 +1453,21 @@ function makePanel(mountId, opts){
   });
 
   function render(comuna){
+    comunaAct = comuna;
     var cw0 = CW, pl0 = PADL, pr0 = PADR; if(opts.cw){ CW = opts.cw; PADL = 58; PADR = 34; }
     var data = opts.perComuna ? opts.dataAll[comuna] : opts.dataAll;
+    var order = opts.order.filter(function(k){ return !ocultas[k]; });
     h3.textContent = opts.title(comuna);
     var extraRow = null;
     if(opts.overlayKey){
-      stackedBarChart(chartHost,data,opts.order,opts.years,opts.colorMap,{name:opts.overlayLabel,values:data[opts.overlayKey]});
+      stackedBarChart(chartHost,data,order,opts.years,opts.colorMap,{name:opts.overlayLabel,values:data[opts.overlayKey]});
       extraRow = {label:opts.overlayLabel, values:data[opts.overlayKey]};
-    } else if(opts.type==='line'){ lineChart(chartHost,data,opts.order,opts.years,opts.colorMap); }
-    else if(opts.type==='area'){ stackedAreaChart(chartHost,data,opts.order,opts.years,opts.colorMap); }
-    else { stackedBarChart(chartHost,data,opts.order,opts.years,opts.colorMap); }
-    tableHost.innerHTML=''; tableHost.appendChild(dataTable(data,opts.order,opts.years,extraRow));
+    } else if(opts.type==='line'){ lineChart(chartHost,data,order,opts.years,opts.colorMap); }
+    else if(opts.type==='area'){ stackedAreaChart(chartHost,data,order,opts.years,opts.colorMap); }
+    else { stackedBarChart(chartHost,data,order,opts.years,opts.colorMap); }
+    tableHost.innerHTML=''; tableHost.appendChild(dataTable(data,order,opts.years,extraRow));
     if(opts.stat){
-      var s = opts.stat(data);
+      var s = opts.stat(data, order);
       statBox.innerHTML = s.value+'<small>'+s.label+'</small>';
     } else statBox.innerHTML='';
     CW = cw0; PADL = pl0; PADR = pr0;
@@ -1677,8 +1695,8 @@ makeNivelPanel('panel-estabrural',{
 makePanel('panel-entrada',{
   title:function(c){ return 'Alumnos que entran a la comuna, por dependencia, '+c; },
   sub:'Alumnos que el año anterior no estaban en la comuna, según el tipo de colegio al que llegaron.',
-  region:true, cw:1000, dataAll:migEntrada, perComuna:true, order:depeOrder, colorMap:DEPE_COLOR, years:YEARS11, type:'bar', initial:DEFAULT_COMUNA,
-  stat:function(d){ var tot=0; depeOrder.forEach(function(k){ tot+=(d[k][d[k].length-1]||0); }); return {value:tot, label:'entradas 2025'}; }
+  region:true, cw:1000, toggle:true, dataAll:migEntrada, perComuna:true, order:depeOrder, colorMap:DEPE_COLOR, years:YEARS11, type:'bar', initial:DEFAULT_COMUNA,
+  stat:function(d, ord){ var tot=0; ord.forEach(function(k){ tot+=(d[k][d[k].length-1]||0); }); return {value:fmt(tot), label:'entradas 2025'}; }
 });
 
 makePanel('panel-flow',{
