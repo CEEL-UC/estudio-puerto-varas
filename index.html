@@ -1055,8 +1055,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
     <div class="card mapcard" id="panel-torta"></div>
     <div class="card mapcard" id="panel-cohortes"></div>
     <div class="card mapcard" id="panel-flow"></div>
-    <div class="card" id="panel-entrada"></div>
-    <div class="card" id="panel-origen"></div>
+    <div class="card mapcard" id="panel-entrada"></div>
   </div>
   <p class="depe-note" style="font-style:normal"><b>Administraci&oacute;n delegada.</b> En la regi&oacute;n solo hay colegios de administraci&oacute;n delegada en R&iacute;o Negro. Cuentan en los totales, pero no aparecen en el gr&aacute;fico de entradas por dependencia.</p>
 </section>
@@ -1678,15 +1677,8 @@ makeNivelPanel('panel-estabrural',{
 makePanel('panel-entrada',{
   title:function(c){ return 'Alumnos que entran a la comuna, por dependencia, '+c; },
   sub:'Alumnos que el año anterior no estaban en la comuna, según el tipo de colegio al que llegaron.',
-  region:true, dataAll:migEntrada, perComuna:true, order:depeOrder, colorMap:DEPE_COLOR, years:YEARS11, type:'bar', initial:DEFAULT_COMUNA,
+  region:true, cw:1000, dataAll:migEntrada, perComuna:true, order:depeOrder, colorMap:DEPE_COLOR, years:YEARS11, type:'bar', initial:DEFAULT_COMUNA,
   stat:function(d){ var tot=0; depeOrder.forEach(function(k){ tot+=(d[k][d[k].length-1]||0); }); return {value:tot, label:'entradas 2025'}; }
-});
-
-makePanel('panel-origen',{
-  title:function(c){ return 'Procedencia de los alumnos que entran a la comuna, '+c; },
-  sub:'Dónde estaban matriculados el año anterior.',
-  region:true, dataAll:migOrigen, perComuna:true, order:['Entrante de otra comuna de Los Lagos','Entrante de otra región','Sin registro el año anterior'], colorMap:ORIGEN_COLOR, years:YEARS11, type:'area', initial:DEFAULT_COMUNA,
-  stat:function(d){ var n=d['Entrante de otra región'].length-1, tot=0; ['Entrante de otra comuna de Los Lagos','Entrante de otra región','Sin registro el año anterior'].forEach(function(k){tot+=d[k][n];}); return {value:Math.round(100*d['Entrante de otra región'][n]/tot)+'%', label:'de otra región, 2025'}; }
 });
 
 makePanel('panel-flow',{
