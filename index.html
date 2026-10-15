@@ -2421,14 +2421,14 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // Indicadores por pestaña del cuadro derecho. La clave (key) es la de prep_manzanas_censo.py:
     // su posición en el arreglo v de cada polígono se busca en MZK al cargar los datos.
     var PESTANAS = [
-      {id:'pob', n:'Población', nota:'Menores de 18 = 0 a 17 años. El INE publica las edades en tramos (0-5, 6-13, 14-17, 18-24), así que los de 18 años justos no se pueden separar. NNA en edad escolar = 6 a 17 años; prekínder y kínder quedan dentro del tramo 0-5. El Censo no pregunta por embarazo: el % de 0 a 5 años es lo más cercano a natalidad reciente.'},
+      {id:'pob', n:'Población', nota:'Menores de 18 = 0 a 17 años. El INE publica las edades en tramos (0-5, 6-13, 14-17, 18-24), así que los de 18 años justos no se pueden separar. NNA por hectárea suma los tramos de edad elegidos bajo el mapa (0-5, 6-13 y 14-17). El Censo no pregunta por embarazo: el % de 0 a 5 años es lo más cercano a natalidad reciente.'},
       {id:'viv', n:'Hogar y vivienda', nota:'Hacinamiento, allegamiento, materialidad y servicios se calculan sobre las viviendas ocupadas con moradores presentes; tenencia y calefacción, sobre los hogares.'},
       {id:'gse', n:'Socioeconómico', nota:''},
       {id:'comp', n:'Composición', nota:'Estado civil: personas de 15 años o más. El parentesco y los hogares monoparentales no se publican por manzana (solo en el microdato, a nivel de comuna). Hogares con menores = con al menos una persona de 0 a 14 años, así lo publica el INE.'}
     ];
     var VARS = [
       {p:'pob', key:'men18', n:'Menores de 18 años', d:'Personas de 0 a 17 años, sobre el total de personas.'},
-      {p:'pob', key:'nna', n:'NNA en edad escolar por hectárea', u:' por ha', d:'Niños, niñas y adolescentes de 6 a 17 años por hectárea de superficie del polígono.'},
+      {p:'pob', key:'nna', n:'NNA por hectárea', u:' por ha', d:''}, // d y los valores se arman en el navegador según los tramos de edad elegidos
       {p:'pob', key:'men6', n:'Niños de 0 a 5 años', d:'Personas de 0 a 5 años, sobre el total de personas.'},
       {p:'pob', key:'may60', n:'60 años o más', d:'Personas de 60 años o más, sobre el total de personas.'},
       {p:'pob', key:'edad', n:'Edad promedio', u:' años', d:'Edad promedio de las personas censadas.'},
@@ -2471,7 +2471,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // un solo tono, de claro a oscuro, con saltos de luminosidad iguales (OKLab L 0,95 a 0,43, pasos de 0,13)
     var RAMP = ['#feebd2','#efb87c','#db832b','#b35703','#813700'];
     var NODATA = '#b4bab6'; // gris fijo: se tiene que ver igual en tema claro y oscuro
-    var st = {comuna: comunaIni, v: VARS[0], pest: 'pob', colegios: false, rural: false, obj: false};
+    var st = {comuna: comunaIni, v: VARS[0], pest: 'pob', colegios: false, rural: false, obj: false, tr: {n05:true, n613:true, n1417:false}};
     var css = function(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var num = function(x,v){ return x.toFixed(v.dec).replace('.',',') + v.u; };
 
@@ -2499,6 +2499,34 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     var hint = heln('span',{class:'map-legend-hint'}); hint.textContent = '*Capas opcionales sobre el mapa'; capasRow.appendChild(hint);
     mount.appendChild(capasRow);
 
+    // tramos de edad para NNA por hectárea y para el filtro de nivel alto con NNA (los que publica el INE por manzana);
+    // se combinan, siempre queda al menos uno encendido. La fila solo aparece cuando se usa alguno de los dos
+    var TRAMOS = [['n05',0,5],['n613',6,13],['n1417',14,17]];
+    var edadRow = heln('div',{class:'map-legend'});
+    var edadLbl = heln('span',{class:'map-legend-hint'}); edadLbl.textContent = 'Edades de los NNA:'; edadRow.appendChild(edadLbl);
+    var edadBtns = TRAMOS.map(function(t){
+      var b = heln('button',{class:'map-legend-item',type:'button'});
+      b.style.setProperty('--dotc','var(--ink-2)');
+      b.appendChild(heln('span',{class:'sq'})); b.appendChild(document.createTextNode(t[1]+' a '+t[2]+' años'));
+      b.addEventListener('click', function(){
+        st.tr[t[0]] = !st.tr[t[0]];
+        if(!TRAMOS.some(function(x){ return st.tr[x[0]]; })) st.tr[t[0]] = true;
+        if(map) calcNNA(); render(false);
+      });
+      edadRow.appendChild(b); return b;
+    });
+    mount.appendChild(edadRow);
+    // texto de las edades elegidas: los tramos contiguos se juntan (0-5 y 6-13 = 0 a 13 años)
+    function edades(){
+      var g = [];
+      TRAMOS.forEach(function(t){
+        if(!st.tr[t[0]]) return;
+        var u = g[g.length-1];
+        if(u && u[1]===t[1]-1) u[1] = t[2]; else g.push([t[1],t[2]]);
+      });
+      return g.map(function(x){ return x[0]+' a '+x[1]; }).join(' y ')+' años';
+    }
+
     var wrap = heln('div',{class:'mapwrap'});
     var mapDiv = heln('div',{id:'censomap'});
     var boxLeft = heln('div',{class:'mapoverlay topleft censo-legend'});
@@ -2516,7 +2544,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       'Los colegios son los mismos del mapa de colegios, año 2025, tramo regular.';
     mount.appendChild(notas);
     var notaObj = heln('p',{class:'depe-note'});
-    notaObj.innerHTML = '<b>Nivel alto con NNA.</b> Destaca los polígonos que están en los quintiles 4 y 5 del índice socioeconómico de su comuna y, a la vez, en el 40% de mayor densidad de NNA de 6 a 17 años por hectárea. La superficie se mide sobre el polígono del INE, por lo que las entidades rurales, mucho más extensas, tienen densidades bajas. '+
+    notaObj.innerHTML = '<b>Nivel alto con NNA.</b> Destaca los polígonos que están en los quintiles 4 y 5 del índice socioeconómico de su comuna y, a la vez, en el 40% de mayor densidad de NNA por hectárea, en los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). La superficie se mide sobre el polígono del INE, por lo que las entidades rurales, mucho más extensas, tienen densidades bajas. '+
       'Es una lectura por manzana: muestra dónde viven niños en zonas de mayor nivel socioeconómico, no si esos niños pertenecen a los hogares de mayor nivel.';
     mount.appendChild(notaObj);
 
@@ -2549,7 +2577,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     armarVars();
 
-    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1;
+    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, VNNA = null;
     var obj = null; // polígonos destacados (nivel alto con NNA) y su resumen, o null si el filtro está apagado
     function quintiles(vals){
       vals = vals.slice().sort(function(a,b){ return a-b; });
@@ -2594,6 +2622,14 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     // nivel alto con NNA: índice en quintil 4 o 5 (quintiles ponderados, mismos cortes que la leyenda del índice) y
     // NNA por hectárea en el 40% de polígonos con mayor densidad (desde el corte del quintil 4, con al menos un NNA)
+    // NNA de los tramos elegidos (en v[KNN]) y NNA por hectárea (en v[KN]), para todos los polígonos
+    function calcNNA(){
+      MZ.forEach(function(r){
+        var n = 0; TRAMOS.forEach(function(t){ if(st.tr[t[0]]) n += r.v[2+MZK.indexOf(t[0])] || 0; });
+        r.v[KNN] = n; r.v[KN] = r.v[KH]>0 ? Math.round(n/r.v[KH]*10)/10 : null;
+      });
+      VNNA.d = 'Niños, niñas y adolescentes de '+edades()+' por hectárea de superficie del polígono.';
+    }
     function calcObj(filas){
       var bI = quintilesPond(filas.filter(function(r){ var x = r.v[KI]; return x!==null && x!==undefined; }).map(function(r){ return [r.v[KI], r.v[KW]]; }));
       var tot = 0; filas.forEach(function(r){ tot += r.v[KNN] || 0; });
@@ -2616,7 +2652,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         h += '<span'+cls+'>'+v.n+'</span><b>'+(x===null || x===undefined ? '<span style="color:#7b8580;font-weight:500">sin dato</span>' : num(x,v)+(v.key==='nna' ? ' ('+fmt(r.v[KNN])+')' : ''))+'</b>';
       });
       h += '</div>';
-      if(obj && obj.ids[r.id]) h += '<div class="tt-warn" style="color:var(--ink-2)">Nivel alto con NNA en edad escolar.</div>';
+      if(obj && obj.ids[r.id]) h += '<div class="tt-warn" style="color:var(--ink-2)">Nivel alto con NNA ('+edades()+').</div>';
       if(r.v[0] < 20) h += '<div class="tt-warn">Menos de 20 personas: los porcentajes son poco estables.</div>';
       return h;
     }
@@ -2646,7 +2682,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       if(obj){
         vobj.innerHTML = '<b style="color:var(--ink-2)">Nivel alto con NNA</b><br>' + (obj.sinIse
           ? 'No disponible en esta comuna: no tiene índice socioeconómico.'
-          : fmt(obj.n)+' polígonos con '+fmt(obj.nna)+' NNA de 6 a 17 años ('+
+          : fmt(obj.n)+' polígonos con '+fmt(obj.nna)+' NNA de '+edades()+' ('+
             (obj.tot ? (100*obj.nna/obj.tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(obj.tot)+' del mapa)');
       }
       if(st.colegios){
@@ -2663,6 +2699,8 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       bRur.setAttribute('aria-pressed', st.rural ? 'true' : 'false');
       bCol.setAttribute('aria-pressed', st.colegios ? 'true' : 'false');
       bObj.setAttribute('aria-pressed', st.obj ? 'true' : 'false');
+      edadRow.style.display = (st.obj || st.v===VNNA) ? '' : 'none';
+      edadBtns.forEach(function(b,i){ b.setAttribute('aria-pressed', st.tr[TRAMOS[i][0]] ? 'true' : 'false'); });
       varBtns.forEach(function(b){ b.setAttribute('aria-pressed', VARS[+b.getAttribute('data-i')]===st.v ? 'true' : 'false'); });
       tabBtns.forEach(function(b){ b.setAttribute('aria-selected', b.getAttribute('data-p')===st.pest ? 'true' : 'false'); });
       boxRight.querySelectorAll('.vlist').forEach(function(l){ l.hidden = l.getAttribute('data-p')!==st.pest; });
@@ -2712,7 +2750,11 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       // posición de cada indicador en v: 0 personas, 1 viviendas, luego el orden de MZK
       VARS.forEach(function(v){ v.k = 2 + MZK.indexOf(v.key); });
       KW = 2 + MZK.indexOf('w'); // población de 18+ del polígono, ponderador de los quintiles
-      KI = 2 + MZK.indexOf('ise'); KN = 2 + MZK.indexOf('nna'); KNN = 2 + MZK.indexOf('nnan'); // para el filtro de nivel alto con NNA
+      KI = 2 + MZK.indexOf('ise'); KH = 2 + MZK.indexOf('ha');
+      // NNA y NNA por hectárea van en dos posiciones nuevas al final de v, se recalculan al cambiar los tramos de edad
+      KNN = 2 + MZK.length; KN = KNN + 1;
+      VNNA = VARS.filter(function(v){ return v.key==='nna'; })[0]; VNNA.k = KN;
+      calcNNA();
       loading.remove();
       map = L.map(mapDiv, {preferCanvas:true, scrollWheelZoom:true, zoomControl:false});
       L.control.zoom({position:'bottomleft'}).addTo(map);
