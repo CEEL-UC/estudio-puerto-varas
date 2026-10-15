@@ -1628,13 +1628,13 @@ function nivelBajada(sel){
 makeNivelPanel('panel-headline',{
   multi:true,
   title:function(cs){ return 'Matrícula total por comuna, '+(cs.length===1 ? cs[0] : cs.slice(0,-1).join(', ')+' y '+cs[cs.length-1]); },
-  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'. Puedes elegir varias comunas y se suman en el gráfico.'; },
+  sub:function(sel){ return 'Total de todas las dependencias (municipal / SLEP, particular subvencionado y particular pagado): alumnos matriculados '+nivelBajada(sel)+'. Puedes elegir varias comunas para compararlas.'; },
   compute:function(cs, sel){
     var d = {}, cm = {};
     cs.forEach(function(c){ d[c] = matTotal(c, sel); cm[c] = colorComuna(c, cs); });
-    return {data:d, order:cs.slice(), colorMap:cm, type:'bar'};
+    return {data:d, order:cs.slice(), colorMap:cm, type:'line'};
   },
-  stat:function(r, cs){ var tot = 0; cs.forEach(function(c){ tot += r.data[c][r.data[c].length-1]; }); return {value:fmt(tot), label:'matrícula 2025'+(cs.length>1?' (suma)':'')}; }
+  stat:function(r, cs){ var tot = 0; cs.forEach(function(c){ tot += r.data[c][r.data[c].length-1]; }); return cs.length>1 ? null : {value:fmt(tot), label:'matrícula 2025'}; }
 });
 
 makeNivelPanel('panel-depe',{
