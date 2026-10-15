@@ -1963,7 +1963,9 @@ makePanel('panel-flow',{
     if(typeof COHORTES === 'undefined'){ chartHost.innerHTML = '<div class="subtle" style="padding:40px 0">Cargando cohortes…</div>'; return; }
     var esReg = comuna===REG, cs = cats(esReg), fs = filas();
     var depNom = DEPS.filter(function(d){ return d[0]===dep; })[0][1];
-    h3.textContent = 'Año de llegada '+(esReg?'a la región':'a la comuna')+', '+comuna+' '+anio+(dep==='T' ? '' : ' · '+depNom);
+    var lugar = esReg ? 'la región' : 'la comuna';
+    h3.textContent = 'Matrícula total '+anio+' de '+comuna+' según año de llegada a '+lugar+(dep==='T' ? '' : ' · '+depNom);
+    sub.textContent = 'Cada barra agrupa a los alumnos de 1° básico a 4° medio matriculados en '+anio+' que llegaron a '+lugar+' ese año y no se han ido; los colores indican de dónde venían. "≤2014": en '+lugar+' desde 2014 o antes. Las barras suman el 100%. Click en una barra para ver sus comunas de origen.';
     Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
     var totAll = 0, totVis = 0, porCat = {};
