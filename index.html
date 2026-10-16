@@ -902,7 +902,7 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .mapclean{position:absolute;z-index:520;right:8px;bottom:22px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:600 10.5px "IBM Plex Sans",sans-serif;padding:3px 8px;border-radius:2px;cursor:pointer;opacity:.9}
 .mapclean:hover{opacity:1;color:var(--ink);border-color:var(--ink-3)}
 .mapclean[aria-pressed="true"]{color:var(--c-pv);border-color:var(--c-pv)}
-#panel-mapa.limpio .mapoverlay,#panel-mapa.limpio .map-legend-hint,#panel-mapa.limpio .extra-hint,#panel-mapa.limpio .depe-note,#panel-mapa.limpio .nobase-note{display:none}
+#panel-censo.limpio .mapoverlay,#panel-censo.limpio .depe-note,#panel-censo.limpio .map-legend-hint,#panel-mapa.limpio .mapoverlay,#panel-mapa.limpio .map-legend-hint,#panel-mapa.limpio .extra-hint,#panel-mapa.limpio .depe-note,#panel-mapa.limpio .nobase-note{display:none}
 .comsel{border:1.5px solid var(--line);background:var(--surface);color:var(--ink-2);font:700 11.5px "IBM Plex Sans",sans-serif;padding:3px 6px;border-radius:2px;cursor:pointer;max-width:220px}
 .comsel.on{border-color:var(--c-pv);color:var(--c-pv)}
 .torta-wrap{display:grid;grid-template-columns:minmax(170px,230px) 1fr;gap:16px;align-items:center;margin-top:6px}
@@ -2478,6 +2478,16 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     var boxLeft = heln('div',{class:'mapoverlay topleft censo-legend'});
     var boxRight = heln('div',{class:'mapoverlay topright censo-vars'});
     wrap.appendChild(mapDiv); wrap.appendChild(boxLeft); wrap.appendChild(boxRight);
+    // botón para limpiar el mapa: oculta leyenda, cuadro de indicadores y notas (se vuelven a mostrar con el mismo botón)
+    var cleanBtn = heln('button',{class:'mapclean',type:'button','aria-pressed':'false'});
+    cleanBtn.textContent = 'Ocultar cuadros';
+    cleanBtn.addEventListener('click',function(){
+      var on = !mount.classList.contains('limpio');
+      mount.classList.toggle('limpio', on);
+      cleanBtn.setAttribute('aria-pressed', on?'true':'false');
+      cleanBtn.textContent = on ? 'Mostrar cuadros' : 'Ocultar cuadros';
+    });
+    wrap.appendChild(cleanBtn);
     mount.appendChild(wrap);
     var loading = heln('div',{class:'censo-loading'}); loading.textContent = 'Cargando manzanas del Censo 2024…';
     mapDiv.appendChild(loading);
