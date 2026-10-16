@@ -987,19 +987,23 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .legmedia span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:700}
 .legmedia b{font:600 16px "IBM Plex Mono",monospace;color:var(--ink)}
 .legmedia small{font-size:10.5px;color:var(--ink-3);line-height:1.35}
-.banner{background:var(--bg);border-bottom:1px solid var(--line);margin:0 -18px}
-.banner-in{max-width:1216px;margin:0 auto;padding:14px 18px;display:flex;align-items:center}
-.banner a{display:inline-block;line-height:0;padding:7px 14px;border-radius:6px;background:#f1f3f2;box-shadow:0 0 0 1px rgba(255,255,255,.07),0 0 24px rgba(255,255,255,.11),0 0 6px rgba(255,255,255,.08);transition:box-shadow .3s ease}
-.banner a:hover{box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 30px rgba(255,255,255,.18),0 0 8px rgba(255,255,255,.12)}
-.banner img{height:48px;width:auto;display:block}
-:root[data-theme="light"] .banner a{box-shadow:0 0 0 1px rgba(26,31,28,.06),0 0 18px rgba(31,84,144,.10)}
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .banner a{box-shadow:0 0 0 1px rgba(26,31,28,.06),0 0 18px rgba(31,84,144,.10)}}
+.banner{position:relative;margin:0 -18px;background:radial-gradient(900px 160px at 8% 0%, color-mix(in srgb, var(--c-pv) 22%, transparent), transparent 70%),radial-gradient(700px 120px at 100% 100%, color-mix(in srgb, var(--c-pm) 10%, transparent), transparent 70%),var(--bg)}
+.banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-pv) 55%, transparent) 20%, color-mix(in srgb, var(--c-pv) 55%, transparent) 80%, transparent)}
+.banner-in{max-width:1216px;margin:0 auto;padding:18px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.banner-logo{display:inline-block;line-height:0;padding:10px 18px;border-radius:8px;background:#f4f6f5;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 8px 28px rgba(0,0,0,.28),0 0 34px color-mix(in srgb, var(--c-pv) 30%, transparent);transition:transform .25s ease, box-shadow .25s ease}
+.banner-logo:hover{transform:translateY(-1px);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 10px 32px rgba(0,0,0,.3),0 0 44px color-mix(in srgb, var(--c-pv) 42%, transparent)}
+.banner-logo img{height:64px;width:auto;display:block}
+.banner-link{font:600 12px "IBM Plex Mono",monospace;letter-spacing:.04em;color:var(--ink-2);text-decoration:none;border-bottom:1px solid transparent;transition:color .2s ease,border-color .2s ease}
+.banner-link:hover{color:var(--c-pv);border-color:currentColor}
+:root[data-theme="light"] .banner-logo{box-shadow:0 0 0 1px rgba(26,31,28,.07),0 6px 20px rgba(26,31,28,.10),0 0 30px color-mix(in srgb, var(--c-pv) 18%, transparent)}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .banner-logo{box-shadow:0 0 0 1px rgba(26,31,28,.07),0 6px 20px rgba(26,31,28,.10),0 0 30px color-mix(in srgb, var(--c-pv) 18%, transparent)}}
+@media (max-width:560px){.banner-link{display:none}.banner-logo img{height:52px}}
 .torta-item.fija{cursor:default}
 .torta-item.fija:hover{border-color:var(--line)}
 .nobase-note{position:absolute;left:58px;bottom:10px;z-index:450;background:var(--surface);border:1px solid var(--line);padding:5px 9px;font-size:11px;color:var(--ink-3);border-radius:2px;max-width:55%}
 </style>
 
-<div class="banner"><div class="banner-in"><a href="https://encuestas.uc.cl/" target="_blank" rel="noopener" aria-label="Centro UC de Encuestas y Estudios Longitudinales"><img src="logo_ceel.png" alt="Centro UC Encuestas y Estudios Longitudinales" width="147" height="69"></a></div></div>
+<div class="banner"><div class="banner-in"><a class="banner-logo" href="https://encuestas.uc.cl/" target="_blank" rel="noopener" aria-label="Centro UC de Encuestas y Estudios Longitudinales"><img src="logo_ceel.png" alt="Centro UC Encuestas y Estudios Longitudinales" width="147" height="69"></a><a class="banner-link" href="https://encuestas.uc.cl/" target="_blank" rel="noopener">encuestas.uc.cl <span aria-hidden="true">&#8599;</span></a></div></div>
 
 <div class="wrap">
 
@@ -1923,7 +1927,7 @@ makeNivelPanel('panel-estabrural',{
     var esReg = comuna===REG, cs = cats(esReg), fs = filas();
     var depNom = DEPS.filter(function(d){ return d[0]===dep; })[0][1];
     var lugar = esReg ? 'la región' : 'la comuna';
-    h3.textContent = 'Matrícula total '+anio+' de '+comuna+' según año de llegada a '+lugar+(dep==='T' ? '' : ' · '+depNom);
+    h3.textContent = 'Matrícula total '+anio+' (stock) de '+comuna+' según año de llegada a '+lugar+(dep==='T' ? '' : ' · '+depNom);
     sub.textContent = 'Alumnos de 1° básico a 4° medio matriculados en '+anio+', según el año en que llegaron a '+lugar+' y de dónde venían. Las barras suman 100%.';
     Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
