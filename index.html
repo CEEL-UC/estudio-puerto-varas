@@ -987,8 +987,16 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .legmedia span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:700}
 .legmedia b{font:600 16px "IBM Plex Mono",monospace;color:var(--ink)}
 .legmedia small{font-size:10.5px;color:var(--ink-3);line-height:1.35}
+.banner{background:#ffffff;border-bottom:1px solid #d6dad7;margin:0 -18px}
+.banner-in{max-width:1216px;margin:0 auto;padding:10px 18px;display:flex;align-items:center}
+.banner a{display:inline-block;line-height:0}
+.banner img{height:56px;width:auto;display:block}
+.torta-item.fija{cursor:default}
+.torta-item.fija:hover{border-color:var(--line)}
 .nobase-note{position:absolute;left:58px;bottom:10px;z-index:450;background:var(--surface);border:1px solid var(--line);padding:5px 9px;font-size:11px;color:var(--ink-3);border-radius:2px;max-width:55%}
 </style>
+
+<div class="banner"><div class="banner-in"><a href="https://encuestas.uc.cl/" target="_blank" rel="noopener" aria-label="Centro UC de Encuestas y Estudios Longitudinales"><img src="logo_ceel.png" alt="Centro UC Encuestas y Estudios Longitudinales" width="147" height="69"></a></div></div>
 
 <div class="wrap">
 
@@ -1052,7 +1060,6 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
   </div>
 
   <div class="grid">
-    <div class="card mapcard" id="panel-torta"></div>
     <div class="card mapcard" id="panel-cohortes"></div>
     <div class="card mapcard" id="panel-flow"></div>
   </div>
@@ -1754,7 +1761,7 @@ makeNivelPanel('panel-estabrural',{
     sub.textContent = 'Arriba: alumnos de 1° básico a 4° medio según dónde estaban el año anterior. Abajo: alumnos que dejan la comuna al año siguiente.';
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
     var n = YEARS11.length, ent = 0; ENTR.forEach(function(k){ ent += d[k][n-1] || 0; });
-    statBox.innerHTML = fmt(ent)+'<small>entradas 2025</small>';
+    statBox.innerHTML = '';
 
     // escala: positivo hasta la barra más alta visible; negativo hasta la mayor salida
     var tops = YEARS11.map(function(_,i){ var s = 0; vis.forEach(function(k){ s += d[k][i] || 0; }); return s; });
@@ -1796,168 +1803,6 @@ makeNivelPanel('panel-estabrural',{
     });
     chartHost.innerHTML = ''; chartHost.appendChild(svg);
     tableHost.innerHTML = ''; tableHost.appendChild(dataTable(d, vis, YEARS11, conSal ? {label:'Salidas al año siguiente', values:sal} : null));
-  }
-  render();
-})();
-
-
-// torta: composición de la matrícula del tramo regular de una comuna (o de toda la región) según dónde estaba
-// el año anterior, filtrable por dependencia del colegio. La leyenda prende y apaga categorías; los % se
-// recalculan sobre las categorías visibles. Abajo, una tabla desplegable con las comunas de origen de los entrantes.
-(function(){
-  var mount = document.getElementById('panel-torta'); if(!mount) return;
-  var REG = 'Región de Los Lagos';
-  var CATS_COM = ['Se mantiene','Entrante de otra comuna de Los Lagos','Entrante de otra región','Sin registro el año anterior','Ingreso 1° básico'];
-  var CATS_REG = ['Se mantiene en la región','Entrante de otra región','Sin registro el año anterior','Ingreso 1° básico'];
-  var DEPS = [['T','Todas',null],['M','Municipal / SLEP','--c-pv'],['S','Part. Subvencionado','--c-pm'],['P','Part. Pagado','--c-fr']];
-  var apagadas = {'Sin registro el año anterior':true,'Ingreso 1° básico':true}; // por defecto se ven los que se mantienen y los entrantes
-  var comuna = DEFAULT_COMUNA, anio = YEARS11[YEARS11.length-1], dep = 'T';
-
-  var head = heln('div',{class:'card-head'});
-  var tw = heln('div'); var h3 = heln('h3'); tw.appendChild(h3);
-  var sub = heln('div',{class:'sub'}); sub.textContent = 'Alumnos de 1° básico a 4° medio según dónde estaban matriculados el año anterior.'; tw.appendChild(sub);
-  head.appendChild(tw); var statBox = heln('div',{class:'stat'}); head.appendChild(statBox); mount.appendChild(head);
-  var wrap = heln('div',{class:'torta-wrap'});
-  var svgHost = heln('div',{class:'torta-svg'}), side = heln('div',{class:'torta-side'}), leg = heln('div',{class:'torta-leg'});
-  wrap.appendChild(svgHost); wrap.appendChild(side); mount.appendChild(wrap);
-  function fila(etiqueta, control){
-    var f = heln('div',{class:'torta-fila'});
-    var l = heln('span',{class:'torta-lbl'}); l.textContent = etiqueta;
-    f.appendChild(l); f.appendChild(control); side.appendChild(f);
-  }
-  fila('Comuna', comunaPicker(comuna, function(c){ comuna = c; render(); }, true));
-
-  var yearRow = heln('div',{class:'yearrow'}), yearBtns = {};
-  YEARS11.forEach(function(y){
-    var b = heln('button',{class:'yearbtn',type:'button'}); b.textContent = y;
-    b.addEventListener('click',function(){ anio = y; render(); });
-    yearBtns[y] = b; yearRow.appendChild(b);
-  });
-  fila('Año', yearRow);
-
-  // filtro por dependencia del colegio al que asiste el alumno ese año
-  var depRow = heln('div',{class:'switcher torta-dep'}), depBtns = {};
-  DEPS.forEach(function(d){
-    var b = heln('button',{class:'pillmini',type:'button'});
-    b.style.setProperty('--dotc', d[2] ? 'var('+d[2]+')' : 'var(--ink-2)');
-    b.appendChild(heln('span',{class:'dot'})); b.appendChild(document.createTextNode(d[1]));
-    b.addEventListener('click',function(){ dep = d[0]; render(); });
-    depBtns[d[0]] = b; depRow.appendChild(b);
-  });
-  fila('Dependencia', depRow);
-  side.appendChild(leg);
-  var nota = heln('div',{class:'torta-note'}); side.appendChild(nota);
-
-  // tabla desplegable de comunas de origen
-  var acc = heln('details',{class:'acc torta-acc'});
-  var accSum = heln('summary'); acc.appendChild(accSum);
-  var accBody = heln('div',{class:'acc-body'}); acc.appendChild(accBody);
-  mount.appendChild(acc);
-  var notaTramo = heln('p',{class:'depe-note torta-tramo'});
-  notaTramo.innerHTML = '<b>Tramo regular y matrícula total.</b> La migración cuenta solo de 1° básico a 4° medio, por eso no calza con “Matrícula por dependencia” (sección 01), que incluye parvularia (en particulares pagados de Puerto Varas 2025: 3.393 + 681 = 4.074). La parvularia se excluye porque no se puede seguir a los niños de un año a otro.';
-  mount.appendChild(notaTramo);
-
-  var NS = 'http://www.w3.org/2000/svg';
-  function sv(tag, a){ var e = document.createElementNS(NS, tag); for(var k in a) e.setAttribute(k, a[k]); return e; }
-  function pct(x){ return (Math.round(x*1000)/10).toFixed(1).replace('.',',')+'%'; }
-  function sumaSeries(lista, cats){
-    var o = {}; cats.forEach(function(k){ o[k] = YEARS11.map(function(_,i){ var s = 0; lista.forEach(function(d){ s += (d[k] && d[k][i]) || 0; }); return s; }); });
-    return o;
-  }
-  // series de la torta según comuna y dependencia
-  function datos(){
-    if(comuna!==REG) return dep==='T' ? migFlow[comuna] : (migFlowDepe[comuna][dep] || sumaSeries([], CATS_COM));
-    if(dep==='T') return migRegionTotal;
-    // región filtrada: se suma sobre las 30 comunas; quien venía de otra comuna de Los Lagos se mantiene en la región
-    var por = COMUNAS_REGION.map(function(c){ return migFlowDepe[c][dep]; }).filter(Boolean);
-    var s = sumaSeries(por, CATS_COM);
-    return {'Se mantiene en la región': s['Se mantiene'].map(function(v,i){ return v + s['Entrante de otra comuna de Los Lagos'][i]; }),
-            'Entrante de otra región': s['Entrante de otra región'], 'Sin registro el año anterior': s['Sin registro el año anterior'], 'Ingreso 1° básico': s['Ingreso 1° básico']};
-  }
-  // comunas de origen [[código, alumnos], ...] para la comuna, año y dependencia elegidos; t = 'i' (Los Lagos) o 'x' (otra región)
-  function origenes(t){
-    var acc = {};
-    var comunas = comuna===REG ? COMUNAS_REGION : [comuna];
-    comunas.forEach(function(c){
-      var porAnio = (origenComunas[c] || {})[anio] || {};
-      Object.keys(porAnio).forEach(function(dk){
-        if(dep!=='T' && dk!==dep) return;
-        (porAnio[dk][t] || []).forEach(function(p){ acc[p[0]] = (acc[p[0]]||0) + p[1]; });
-      });
-    });
-    return Object.keys(acc).map(function(k){ return [k, acc[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
-  }
-  function tablaOrigen(titulo, filas, conRegion){
-    var tot = filas.reduce(function(a,f){ return a+f[1]; },0);
-    if(!tot) return '<div class="torta-tab"><h4>'+titulo+'</h4><div class="subtle">Sin entrantes de este tipo.</div></div>';
-    var h = '<div class="torta-tab"><h4>'+titulo+' <span class="pctdim">('+fmt(tot)+' alumnos, '+filas.length+' comunas)</span></h4><div class="tbl-wrap"><table class="clist"><thead><tr><th>Comuna de origen</th>'+(conRegion?'<th>Región</th>':'')+'<th class="num">Alumnos</th><th class="num">%</th></tr></thead><tbody>';
-    filas.forEach(function(f){
-      var info = comunasOrigen[f[0]] || ['Comuna '+f[0],''];
-      h += '<tr><td>'+info[0]+'</td>'+(conRegion?'<td>'+info[1]+'</td>':'')+'<td class="num">'+fmt(f[1])+'</td><td class="num">'+pct(f[1]/tot)+'</td></tr>';
-    });
-    return h + '</tbody></table></div></div>';
-  }
-
-  function render(){
-    var esReg = comuna===REG;
-    var cats = esReg ? CATS_REG : CATS_COM;
-    var data = datos();
-    var i = YEARS11.indexOf(anio);
-    var depNom = DEPS.filter(function(d){ return d[0]===dep; })[0][1];
-    h3.textContent = 'Procedencia de la matrícula, '+comuna+' '+anio+(dep==='T' ? '' : ' · '+depNom);
-    Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
-    Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
-    var vals = cats.map(function(k){ return (data[k] && data[k][i]) || 0; });
-    var tot = 0; cats.forEach(function(k,j){ if(!apagadas[k]) tot += vals[j]; });
-
-    // torta
-    svgHost.innerHTML = '';
-    var svg = sv('svg',{viewBox:'-110 -110 220 220',role:'img','aria-label':'Gráfico de torta'});
-    var ang = -Math.PI/2;
-    var visibles = cats.filter(function(k,j){ return !apagadas[k] && vals[j]; });
-    cats.forEach(function(k,j){
-      if(apagadas[k] || !vals[j] || !tot) return;
-      var frac = vals[j]/tot, a2 = ang + frac*2*Math.PI, r = 100, color = 'var('+TORTA_COLOR[k]+')';
-      var p;
-      if(visibles.length===1){ p = sv('circle',{cx:0,cy:0,r:r}); }
-      else {
-        var x1 = r*Math.cos(ang), y1 = r*Math.sin(ang), x2 = r*Math.cos(a2), y2 = r*Math.sin(a2);
-        p = sv('path',{d:'M0 0 L'+x1.toFixed(2)+' '+y1.toFixed(2)+' A'+r+' '+r+' 0 '+(frac>0.5?1:0)+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)+' Z'});
-      }
-      p.style.fill = color;
-      p.addEventListener('pointerenter',function(e){ showTT(e,'<div class="ttyear">'+k+'</div><div class="ttrow"><span class="ttname">'+anio+'</span><b>'+fmt(vals[j])+' · '+pct(frac)+'</b></div>'); });
-      p.addEventListener('pointermove',moveTT);
-      p.addEventListener('pointerleave',hideTT);
-      svg.appendChild(p);
-      if(frac>=0.05){
-        var am = (ang+a2)/2, t = sv('text',{x:(62*Math.cos(am)).toFixed(1),y:(62*Math.sin(am)).toFixed(1),'text-anchor':'middle','dominant-baseline':'middle',class:'torta-lab'});
-        t.textContent = pct(frac); svg.appendChild(t);
-      }
-      ang = a2;
-    });
-    if(!tot){ var t0 = sv('text',{x:0,y:0,'text-anchor':'middle',fill:'currentColor'}); t0.textContent = 'Sin datos visibles'; svg.appendChild(t0); }
-    svgHost.appendChild(svg);
-
-    // leyenda prendible/apagable
-    leg.innerHTML = '';
-    cats.forEach(function(k,j){
-      var b = heln('button',{class:'torta-item',type:'button','aria-pressed':apagadas[k]?'false':'true'});
-      b.style.setProperty('--dotc','var('+TORTA_COLOR[k]+')');
-      b.innerHTML = '<span class="sq"></span><span>'+k+'</span><b>'+fmt(vals[j])+'</b><span class="pct">'+(apagadas[k]||!tot?'':pct(vals[j]/tot))+'</span>';
-      b.addEventListener('click',function(){ if(apagadas[k]) delete apagadas[k]; else apagadas[k] = true; render(); });
-      leg.appendChild(b);
-    });
-    var totAll = vals.reduce(function(a,b){ return a+b; },0);
-    statBox.innerHTML = fmt(totAll)+'<small>matrícula tramo regular '+anio+'</small>';
-    nota.textContent = 'Los porcentajes son sobre las categorías visibles.';
-
-    // tabla de comunas de origen
-    var donde = comuna+' '+anio+(dep==='T' ? '' : ', '+depNom);
-    accSum.innerHTML = '<span class="acc-ico" aria-hidden="true"></span><span class="acc-txt">Ver comunas de origen de los entrantes</span><span class="acc-det">'+donde+'</span>';
-    accBody.innerHTML = (esReg ? '<div class="subtle" style="margin:0 0 8px">En el total regional, quien se movió entre comunas de Los Lagos cuenta como "se mantiene en la región"; por eso solo se listan las comunas de otras regiones.</div>'
-                               : tablaOrigen('Entrantes de otra comuna de Los Lagos', origenes('i'), false)) +
-                        tablaOrigen('Entrantes de otra región', origenes('x'), true) +
-                        '<div class="subtle">Comuna del colegio donde estaba matriculado el alumno el año anterior. No incluye a quienes no tienen registro el año anterior ni a quienes comienzan 1° básico.</div>';
   }
   render();
 })();
@@ -2025,6 +1870,9 @@ makeNivelPanel('panel-estabrural',{
   var notaSR = heln('p',{class:'depe-note torta-tramo'});
   notaSR.innerHTML = '<b>Sin registro previo, otros cursos:</b> alumnos que aparecen por primera vez en el sistema escolar en 2° básico o más. Puede deberse a que llegaron del extranjero, a que su colegio recién empezó a informar a Mineduc, a que volvieron tras estar fuera del sistema o a un cambio de su identificador (alumnos extranjeros que obtienen RUN).';
   mount.appendChild(notaSR);
+  var notaTramo = heln('p',{class:'depe-note torta-tramo'});
+  notaTramo.innerHTML = '<b>Tramo regular y matrícula total.</b> La migración cuenta solo de 1° básico a 4° medio, por eso no calza con &ldquo;Matrícula total por tipo de dependencia&rdquo; (sección 01), que puede sumar parvularia (en particulares pagados de Puerto Varas 2025: 3.393 + 681 = 4.074). La parvularia se excluye porque no se puede seguir a los niños de un año a otro.';
+  mount.appendChild(notaTramo);
 
   var NS = 'http://www.w3.org/2000/svg';
   function sv(tag, a){ var e = document.createElementNS(NS, tag); for(var k in a) e.setAttribute(k, a[k]); return e; }
@@ -2121,17 +1969,15 @@ makeNivelPanel('panel-estabrural',{
     var xt = sv('text',{x:(PL+(W-PL-PR)/2).toFixed(1),y:H-4,'text-anchor':'middle',class:'axis-label'}); xt.textContent = 'Año de llegada'; svg.appendChild(xt);
     chartHost.innerHTML = ''; chartHost.appendChild(svg);
 
-    // leyenda prendible
+    // leyenda fija: los porcentajes son siempre sobre la matrícula total del año
     leg.innerHTML = '';
     cs.forEach(function(ct){
-      var off = !!apagadas[ct.n];
-      var b = heln('button',{class:'torta-item',type:'button','aria-pressed':off?'false':'true'});
+      var b = heln('div',{class:'torta-item fija'});
       b.style.setProperty('--dotc','var('+ct.c+')');
-      b.innerHTML = '<span class="sq"></span><span>'+ct.n+'</span><b>'+fmt(porCat[ct.k]||0)+'</b><span class="pct">'+(off||!totVis?'':pct((porCat[ct.k]||0)/totVis))+'</span>';
-      b.addEventListener('click',function(){ if(apagadas[ct.n]) delete apagadas[ct.n]; else apagadas[ct.n] = true; render(); });
+      b.innerHTML = '<span class="sq"></span><span>'+ct.n+'</span><b>'+fmt(porCat[ct.k]||0)+'</b><span class="pct">'+(totVis ? pct((porCat[ct.k]||0)/totVis) : '')+'</span>';
       leg.appendChild(b);
     });
-    nota.textContent = 'Los porcentajes son sobre las categorías visibles.';
+    nota.textContent = 'Porcentajes sobre la matrícula total del año.';
 
     // tabla de comunas de origen (todas las cohortes, o la cohorte seleccionada)
     var donde = comuna+' '+anio+(dep==='T' ? '' : ', '+depNom)+(cohorteSel!=null ? ', llegaron en '+cohorteSel : '');
