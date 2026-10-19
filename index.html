@@ -2817,8 +2817,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       var donde = st.rural ? st.comuna : st.comuna+', zona urbana';
       var que = esNNA ? 'NNA de '+edades() : 'Personas';
       return '<div class="legmedia"><span>'+que+' · '+(qs.length===5 ? 'todos los quintiles' : 'quintil'+(qs.length>1?'es ':' ')+qs.join(', '))+'</span>'+
-        '<b>'+fmt(n)+'</b><small>en '+fmt(m)+' polígonos · '+(tot ? (100*n/tot).toFixed(1).replace('.',',') : '0')+'% de '+(esNNA ? 'los '+fmt(tot)+' NNA' : 'las '+fmt(tot)+' personas')+' de '+donde+
-        (esNNA ? '. Por manzana: al pasar el cursor.' : '.')+' Click en un quintil para mostrarlo u ocultarlo.</small></div>';
+        '<b>'+fmt(n)+'</b></div>';
     }
     var nulosLey = 0, totalLey = 0;
     // detalle al pasar el cursor: se ubica fuera del rectángulo que encierra al polígono (a la derecha, izquierda,
