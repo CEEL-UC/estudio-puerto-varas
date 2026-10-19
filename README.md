@@ -67,7 +67,7 @@ Requisitos: Stata y Python 3.12 con `polars`, `pyarrow`, `numpy`, `shapely`, `op
 
 ## Acceso a datos
 
-Los datos del proyecto están en la carpeta de Dropbox del proyecto.
+Los datos del proyecto están en la [carpeta de Dropbox del proyecto](https://www.dropbox.com/scl/fo/wlzpsmzhn1is6qe3lccqw/ALvTera0h52qn6F2zkhiHlk?rlkey=vsv7vprk6z2273aacrk0yiffz&st=4nvf4bxe&dl=0).
 
 ## Fuentes
 
