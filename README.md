@@ -30,9 +30,8 @@ estudio-puerto-varas/
 │   │   └── prototipo_manzanas/               Primer prototipo del mapa por manzana
 │   ├── graficado/              Datos consolidados para gráficos
 │   └── Resumen de datos.md     Primer mapeo de fuentes (septiembre 2026)
-├── Datos/
-│   └── README.md               Catálogo de las fuentes: qué hay en Dropbox y de dónde se descarga
-└── sincronizar_dropbox.ps1     Copia al repo los cambios de la carpeta de Dropbox
+└── Datos/
+    └── README.md               Catálogo de las fuentes: qué hay en Dropbox y de dónde se descarga
 ```
 
 ## Flujo de datos
@@ -66,36 +65,9 @@ Requisitos: Stata y Python 3.12 con `polars`, `pyarrow`, `numpy`, `shapely`, `op
 
 **Rutas.** Los scripts tienen la ruta de la carpeta del proyecto escrita al inicio (`global raiz` en Stata, constantes en mayúscula como `SALIDA` o `REPO` en Python). Para correrlos en otro computador hay que cambiar esas líneas para que apunten a la carpeta de Dropbox y a la copia local de este repositorio.
 
-## Qué no se publica y por qué
+## Acceso a datos
 
-- **Datos fuente.** Pesan alrededor de 16 GB y GitHub no admite archivos sobre 100 MB. Todos son públicos y se pueden descargar de nuevo; el catálogo con los enlaces está en [Datos/README.md](Datos/README.md).
-- **Microdatos por estudiante.** Los paneles con un registro por estudiante (identificador MRUN de Mineduc) se quedan solo en Dropbox, aunque el identificador venga enmascarado. En el repositorio solo hay resultados agregados por establecimiento, comuna o manzana.
-
-Esto lo controla el archivo `.gitignore`: aunque alguien copie la carpeta completa, git no toma esos archivos.
-
-## Cómo trabajar en este repositorio
-
-**Para editar el sitio:** se modifica `index.html` (o se regeneran los `.js` con los scripts), se revisa en el navegador abriendo el archivo local y se sube con commit y push a `main`. GitHub Pages publica el cambio en uno o dos minutos.
-
-**Para traer al repo lo nuevo de Dropbox:**
-
-```powershell
-git pull
-.\sincronizar_dropbox.ps1 -Dropbox "C:\Users\<usuario>\Dropbox\Proyectos personales\Estudio Puerto Varas"
-git status
-git add -A
-git commit -m "Actualiza código y resultados desde Dropbox"
-git push
-```
-
-Antes de hacer commit, revisar en `git status` que no aparezca ningún archivo de datos ni de estudiantes.
-
-**Reglas básicas:**
-
-- Hacer `git pull` antes de empezar a trabajar y antes de cada commit; varias personas trabajan sobre el mismo repositorio.
-- Commits pequeños, con un mensaje que diga qué cambió en el sitio o en el análisis.
-- `main` es lo que está publicado. Para cambios grandes o de prueba, trabajar en una rama y abrir un pull request para que otra persona lo revise antes de publicarlo.
-- La fuente de verdad del análisis es la carpeta de Dropbox; el repositorio es su copia pública.
+Los datos del proyecto están en la carpeta de Dropbox del proyecto.
 
 ## Fuentes
 
