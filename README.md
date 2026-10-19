@@ -8,13 +8,6 @@ La pregunta de partida es si la llegada de hogares de mayores ingresos durante l
 
 ## Cómo está organizado el proyecto
 
-El proyecto vive en dos lugares que cumplen funciones distintas:
-
-| Lugar | Qué guarda | Quién lo ve |
-|---|---|---|
-| Carpeta del proyecto en Dropbox | Todo: datos fuente (~16 GB), código, resultados y borradores | Equipo del proyecto |
-| Este repositorio (GitHub) | El sitio, el código y los resultados agregados. No guarda datos fuente ni microdatos por estudiante | Público |
-
 La estructura de carpetas del repositorio es un espejo de la de Dropbox, con los mismos nombres, para que cualquier ruta se pueda ubicar en los dos lados.
 
 ```
