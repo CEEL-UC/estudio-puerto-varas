@@ -909,6 +909,11 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .leaflet-tooltip.tt-censo .tt-sub{color:#2f3632}
 .leaflet-tooltip.tt-censo .tt-grid{color:#2f3632}
 .leaflet-tooltip.tt-censo .tt-warn{color:#8a4f05}
+.leaflet-tooltip .tt-nna{display:flex;gap:4px;margin:0 0 6px}
+.leaflet-tooltip .tt-tr{flex:1;display:flex;flex-direction:column;line-height:1.25;padding:3px 6px;border:1px solid var(--tc);border-left:4px solid var(--tc);background:color-mix(in srgb, var(--tc) 22%, transparent);border-radius:2px}
+.leaflet-tooltip .tt-tr i{font-style:normal;font-size:9.5px;color:#2f3632;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.leaflet-tooltip .tt-tr b{font:700 14px "IBM Plex Mono",monospace;color:#181d1a}
+.leaflet-tooltip .tt-tr:not(.on){opacity:.4;border-style:dashed}
 @media (max-width:760px){ #censomap{height:420px} .censo-vars{width:auto;max-height:none} }
 .gpspin{background:none;border:none}
 .gpspin svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
@@ -2527,6 +2532,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // tramos de edad de NNA por hectárea y de nivel alto con NNA (los que publica el INE por manzana); se combinan y
     // siempre queda al menos uno encendido. Los botones van en el cuadro de indicadores, solo con esos dos indicadores
     var TRAMOS = [['n05',0,5],['n613',6,13],['n1417',14,17]];
+    var TR_COLOR = {n05:'#3f8fd1', n613:'#2fa36b', n1417:'#c9821c'}; // un color por tramo, igual en el detalle y en los botones
     // texto de las edades elegidas: los tramos contiguos se juntan (0-5 y 6-13 = 0 a 13 años)
     function edades(){
       var g = [];
@@ -2565,7 +2571,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       'Los colegios son los mismos del mapa de colegios, año 2025, tramo regular.';
     mount.appendChild(notas);
     var notaObj = heln('p',{class:'depe-note'});
-    notaObj.innerHTML = '<b>Nivel alto con NNA.</b> Este indicador, en la pestaña Socioeconómico, marca los polígonos que están en los quintiles 4 y 5 del índice socioeconómico de su comuna y, a la vez, en el 40% de mayor densidad de NNA por hectárea, en los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). La superficie se mide sobre el polígono del INE, por lo que las entidades rurales, mucho más extensas, tienen densidades bajas. '+
+    notaObj.innerHTML = '<b>Nivel alto con NNA.</b> Este indicador, en la pestaña Socioeconómico, marca los polígonos que están en los quintiles 4 y 5 del índice socioeconómico de su comuna y, a la vez, en el 40% de polígonos con más NNA, en los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). Se usa el número de NNA y no la densidad por hectárea, que marcaba manzanas chicas con pocos niños y dejaba fuera manzanas grandes con muchos. Las entidades rurales, mucho más extensas, suelen sumar más NNA que una manzana: conviene leerlas aparte. '+
       'Es una lectura por manzana: muestra dónde viven niños en zonas de mayor nivel socioeconómico, no si esos niños pertenecen a los hogares de mayor nivel.';
     mount.appendChild(notaObj);
 
@@ -2582,7 +2588,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       });
       // tramos de edad y resumen de nivel alto con NNA: solo con los indicadores que los usan
       h += '<div class="vedad" hidden><div class="vnote" style="margin-top:6px">Edades de los NNA:</div>';
-      TRAMOS.forEach(function(t,i){ h += '<button type="button" class="map-legend-item vtr" data-t="'+i+'" style="--dotc:var(--ink-2);margin:4px 4px 0 0;font-size:11px;padding:3px 7px"><span class="sq"></span>'+t[1]+' a '+t[2]+'</button>'; });
+      TRAMOS.forEach(function(t,i){ h += '<button type="button" class="map-legend-item vtr" data-t="'+i+'" style="--dotc:'+TR_COLOR[t[0]]+';margin:4px 4px 0 0;font-size:11px;padding:3px 7px"><span class="sq"></span>'+t[1]+' a '+t[2]+'</button>'; });
       h += '</div><div class="vnote vobj" hidden></div>';
       boxRight.innerHTML = h;
       boxRight.querySelectorAll('.vtr').forEach(function(b){
@@ -2610,9 +2616,9 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
 
     var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, KO = -1, KQ = -1, VNNA = null, VOBJ = null;
     var obj = null; // resumen de nivel alto con NNA en la comuna que se está mostrando
-    // categorías de nivel alto con NNA (valor en v[KO]): 2 = quintil 4-5 con alta densidad de NNA, 1 = quintil 4-5, 0 = quintil 1 a 3
+    // categorías de nivel alto con NNA (valor en v[KO]): 2 = quintil 4-5 con más NNA, 1 = quintil 4-5, 0 = quintil 1 a 3
     var CATC = [RAMP[0], RAMP[2], RAMP[4]];
-    var CATN = ['Quintil 1 a 3 del índice', 'Quintil 4 o 5, menor densidad de NNA', 'Quintil 4 o 5 y alta densidad de NNA'];
+    var CATN = ['Quintil 1 a 3 del índice', 'Quintil 4 o 5, menos NNA', 'Quintil 4 o 5 y más NNA'];
     function quintiles(vals){
       vals = vals.slice().sort(function(a,b){ return a-b; });
       var q = [];
@@ -2653,7 +2659,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       var e = {color: activo ? '#1a1f1c' : (r.t==='E' ? '#6b726e' : '#ffffff'), weight: activo ? 2.5 : (r.t==='E' ? .8 : .6),
               // las entidades rurales son polígonos grandes: van más translúcidas para que no tapen la ciudad
               fillColor: c || NODATA, fillOpacity: (c ? .8 : .6) * (r.t==='E' ? .6 : 1), dashArray: r.t==='E' ? '3 2' : null};
-      // nivel alto con NNA: los de alta densidad llevan además borde oscuro para que se lean de lejos
+      // nivel alto con NNA: los que tienen más NNA llevan además borde oscuro para que se lean de lejos
       if(st.v.cat && r.v[KO]===2 && !activo){ e.color = '#1a1f1c'; e.weight = 1.4; }
       return e;
     }
@@ -2664,20 +2670,22 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         r.v[KNN] = n; r.v[KN] = r.v[KH]>0 ? Math.round(n/r.v[KH]*10)/10 : null;
       });
       VNNA.d = 'Niños, niñas y adolescentes de '+edades()+' por hectárea de superficie del polígono.';
-      VOBJ.d = 'Cruza el índice socioeconómico (quintiles ponderados) con el 40% de polígonos con más NNA de '+edades()+' por hectárea.';
+      VOBJ.d = 'Cruza el índice socioeconómico (quintiles ponderados) con el 40% de polígonos con más NNA de '+edades()+' (número de NNA, no densidad).';
     }
     // nivel alto con NNA: índice en quintil 4 o 5 (quintiles ponderados, mismos cortes que la leyenda del índice) y
-    // NNA por hectárea en el 40% de polígonos con mayor densidad (desde el corte del quintil 4, con al menos un NNA).
+    // número de NNA en el 40% de polígonos habitados con más NNA (desde el corte del quintil 4, con al menos un NNA).
     // Los cortes dependen de la comuna y de si se muestran las entidades rurales, así que se recalcula en cada render
     function calcObj(filas){
       var bI = quintilesPond(filas.filter(function(r){ var x = r.v[KI]; return x!==null && x!==undefined; }).map(function(r){ return [r.v[KI], r.v[KW]]; }));
       var tot = 0; filas.forEach(function(r){ tot += r.v[KNN] || 0; });
       if(bI.length < 4){ filas.forEach(function(r){ r.v[KO] = null; r.v[KQ] = null; }); return {n:0, nna:0, tot:tot, sinIse:true}; }
-      var dens = filas.map(function(r){ return r.v[KN]; }).filter(function(x){ return x!==null && x!==undefined; }).sort(function(a,b){ return a-b; });
-      var cN = dens[Math.floor(3*dens.length/5)];
-      var o = {n:0, nna:0, tot:tot};
+      // corte: el 40% de polígonos habitados con más NNA de las edades elegidas (hasta el 19 oct 2026 era NNA por
+      // hectárea, que marcaba manzanas chicas con pocos niños y dejaba fuera manzanas grandes con muchos)
+      var cnt = filas.filter(function(r){ return r.v[0] > 0; }).map(function(r){ return r.v[KNN] || 0; }).sort(function(a,b){ return a-b; });
+      var cN = cnt[Math.floor(3*cnt.length/5)];
+      var o = {n:0, nna:0, tot:tot, corte:cN};
       filas.forEach(function(r){
-        var i = r.v[KI], d = r.v[KN];
+        var i = r.v[KI], d = r.v[KNN];
         if(i===null || i===undefined){ r.v[KO] = null; r.v[KQ] = null; return; }
         r.v[KQ] = bI.filter(function(b){ return i>=b; }).length; // 0 = quintil 1 ... 4 = quintil 5
         r.v[KO] = i<bI[2] ? 0 : (d!==null && d!==undefined && d>=cN && d>0 ? 2 : 1);
@@ -2688,9 +2696,11 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     function tooltip(r){
       var h = '<span class="tt-title">'+(r.t==='M' ? 'Manzana' : 'Entidad rural')+' · '+r.nom+'</span>'+
         '<span class="tt-sub">'+fmt(r.v[0])+' personas · '+fmt(r.v[1])+' viviendas particulares</span>'+
-        '<span class="tt-sub" style="color:#181d1a"><b>'+fmt(r.v[KNN])+' NNA de '+edades()+'</b> · '+
-          TRAMOS.map(function(t){ return t[1]+'-'+t[2]+': '+fmt(r.v[2+MZK.indexOf(t[0])]||0); }).join(' · ')+
-          (r.v[KQ]!==null && r.v[KQ]!==undefined ? '<br>Quintil '+(r.v[KQ]+1)+' del índice socioeconómico' : '')+'</span><div class="tt-grid">';
+        '<span class="tt-sub" style="color:#181d1a;margin-bottom:3px"><b>'+fmt(r.v[KNN])+' NNA de '+edades()+'</b> (tramos marcados)</span>'+
+        '<div class="tt-nna">'+TRAMOS.map(function(t){
+          return '<span class="tt-tr'+(st.tr[t[0]] ? ' on' : '')+'" style="--tc:'+TR_COLOR[t[0]]+'"><i>'+t[1]+' a '+t[2]+' años</i><b>'+fmt(r.v[2+MZK.indexOf(t[0])]||0)+'</b></span>';
+        }).join('')+'</div>'+
+        (r.v[KQ]!==null && r.v[KQ]!==undefined ? '<span class="tt-sub">Quintil '+(r.v[KQ]+1)+' del índice socioeconómico</span>' : '')+'<div class="tt-grid">';
       VARS.forEach(function(v){
         if(v.p!==st.pest) return;
         var x = r.v[v.k], cls = v===st.v ? ' class="on"' : '';
@@ -2767,7 +2777,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       if(v.cat){
         vobj.innerHTML = '<b style="color:var(--ink-2)">Nivel alto con NNA</b><br>' + (obj.sinIse
           ? 'No disponible en esta comuna: no tiene índice socioeconómico.'
-          : fmt(obj.n)+' polígonos de nivel alto y alta densidad, con '+fmt(obj.nna)+' NNA de '+edades()+' ('+
+          : fmt(obj.n)+' polígonos de nivel alto con '+fmt(obj.corte)+' o más NNA, que suman '+fmt(obj.nna)+' NNA de '+edades()+' ('+
             (obj.tot ? (100*obj.nna/obj.tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(obj.tot)+' del mapa)');
       }
       if(st.colegios){
@@ -2804,7 +2814,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       var donde = st.rural ? st.comuna : st.comuna+', zona urbana';
       return '<div class="legmedia"><span>NNA de '+edades()+' · '+(qs.length===5 ? 'todos los quintiles' : 'quintil'+(qs.length>1?'es ':' ')+qs.join(', '))+'</span>'+
         '<b>'+fmt(n)+'</b><small>en '+fmt(m)+' polígonos · '+(tot ? (100*n/tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(tot)+' NNA de '+donde+
-        (st.v.cat ? ' · '+fmt(alta)+' en polígonos de alta densidad' : '')+'. Por manzana: al pasar el cursor.</small></div>';
+        (st.v.cat ? ' · '+fmt(alta)+' en polígonos con más NNA' : '')+'. Por manzana: al pasar el cursor.</small></div>';
     }
     var nulosLey = 0, totalLey = 0;
     // detalle al pasar el cursor: se ubica fuera del rectángulo que encierra al polígono (a la derecha, izquierda,
