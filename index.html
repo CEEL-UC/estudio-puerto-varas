@@ -2763,7 +2763,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
           var txt = (NQ[i] || 'Quintil '+(i+1))+': '+tramo(i)+u;
           h += usaQ() ? filaQ(i, rampa(i), txt) : '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+txt+'</div>';
         }
-        if(usaQ()) h += resumenQ();
+        if(usaQ() && v.key==='obj') h += resumenQ(); // el total solo en índice y NNA; el índice muestra su promedio comunal
       } else {
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
