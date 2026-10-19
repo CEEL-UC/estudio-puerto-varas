@@ -2571,7 +2571,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       'Los colegios son los mismos del mapa de colegios, año 2025, tramo regular.';
     mount.appendChild(notas);
     var notaObj = heln('p',{class:'depe-note'});
-    notaObj.innerHTML = '<b>Índice socioeconómico y NNA.</b> Este indicador, en la pestaña Socioeconómico, usa los mismos quintiles del índice socioeconómico (proxy), pero las cifras de cada quintil, el total y el detalle de cada manzana son niños, niñas y adolescentes (NNA) de los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). Con los quintiles y los tramos se puede ver, por ejemplo, cuántos NNA de 0 a 13 años viven en manzanas de los quintiles 4 y 5. '+
+    notaObj.innerHTML = '<b>Índice socioeconómico y NNA.</b> Este indicador, en la pestaña Socioeconómico, pinta cada manzana según su número de NNA y usa los quintiles del índice socioeconómico (proxy) como filtro: las cifras de cada quintil, el total, el color y el detalle de cada manzana son niños, niñas y adolescentes (NNA) de los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). Con los quintiles y los tramos se puede ver, por ejemplo, cuántos NNA de 0 a 13 años viven en manzanas de los quintiles 4 y 5. '+
       'Es una lectura por manzana: muestra dónde viven niños en zonas de mayor nivel socioeconómico, no si esos niños pertenecen a los hogares de mayor nivel. Las entidades rurales, mucho más extensas, suelen sumar más NNA que una manzana.';
     mount.appendChild(notaObj);
 
@@ -2643,6 +2643,16 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     // con valores repetidos puede haber menos de 5 tramos: se reparten a lo largo de la rampa
     function rampa(i){ if(st.v.pond) return RAMP[i]; var n = breaks.length+1; return RAMP[n===1 ? 2 : Math.round(i*4/(n-1))]; }
+    // índice y NNA: el color es el número de NNA de los tramos elegidos (escala azul, cortes por quintiles de los
+    // polígonos habitados de la comuna) y el quintil del índice se elige con el filtro de la leyenda
+    var RAMP_NNA = ['#dbe9f6','#9ecae1','#5aa0d0','#2b6fb0','#123f7a'], nnaBreaks = [];
+    function rampaN(i){ var n = nnaBreaks.length+1; return RAMP_NNA[n===1 ? 2 : Math.round(i*4/(n-1))]; }
+    function colorNNA(r){
+      if(!(r.v[0] > 0)) return null;
+      var x = r.v[KNN] || 0;
+      for(var i=0;i<nnaBreaks.length;i++){ if(x < nnaBreaks[i]) return rampaN(i); }
+      return rampaN(nnaBreaks.length);
+    }
     function colorDe(x){
       if(x===null || x===undefined) return null;
       if(st.v.cat) return CATC[x];
@@ -2656,7 +2666,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     function todosQ(){ return [0,1,2,3,4].every(function(i){ return st.q[i]; }); }
     function enFiltro(r){ return !usaQ() || todosQ() || (r.v[KQ]!==null && r.v[KQ]!==undefined && st.q[r.v[KQ]]); }
     function estilo(r, activo){
-      var c = colorDe(r.v[st.v.k]);
+      var c = st.v.key==='obj' ? colorNNA(r) : colorDe(r.v[st.v.k]);
       if(!enFiltro(r)) return {color: activo ? '#1a1f1c' : '#ffffff', weight: activo ? 1.5 : .3, fillColor: c || NODATA, fillOpacity: .07, dashArray: r.t==='E' ? '3 2' : null};
       var e = {color: activo ? '#1a1f1c' : (r.t==='E' ? '#6b726e' : '#ffffff'), weight: activo ? 2.5 : (r.t==='E' ? .8 : .6),
               // las entidades rurales son polígonos grandes: van más translúcidas para que no tapen la ciudad
@@ -2672,7 +2682,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         r.v[KNN] = n; r.v[KN] = r.v[KH]>0 ? Math.round(n/r.v[KH]*10)/10 : null;
       });
       VNNA.d = 'Niños, niñas y adolescentes de '+edades()+' por hectárea de superficie del polígono.';
-      VOBJ.d = 'Mismo índice y quintiles que el índice socioeconómico (proxy); las cifras de cada quintil y del detalle son NNA de '+edades()+'.';
+      VOBJ.d = 'El color es el número de NNA de '+edades()+' de cada manzana; el filtro elige los quintiles del índice socioeconómico (proxy) que se resaltan. Cortes de color calculados con los polígonos habitados.';
     }
     // nivel alto con NNA: índice en quintil 4 o 5 (quintiles ponderados, mismos cortes que la leyenda del índice) y
     // número de NNA en el 40% de polígonos habitados con más NNA (desde el corte del quintil 4, con al menos un NNA).
@@ -2758,12 +2768,22 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       } else if(v.pond){
         // quintiles de población: del 20% de mayor nivel (más oscuro) al 20% de menor nivel; un quintil vacío no se lista
         var NQ = {4:'Quintil 5, 20% de mayor nivel', 0:'Quintil 1, 20% de menor nivel'};
+        if(v.key==='obj' && usaQ()) h += '<div class="legsub" style="margin-top:0">Filtrar por quintil del índice</div>';
         for(var i=breaks.length;i>=0;i--){
           if(i>0 && i<breaks.length && breaks[i-1]===breaks[i]) continue;
           var txt = (NQ[i] || 'Quintil '+(i+1))+': '+tramo(i)+u;
-          h += usaQ() ? filaQ(i, rampa(i), txt) : '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+txt+'</div>';
+          // en índice y NNA el mapa no se pinta por quintil: el cuadro del filtro va en gris
+          h += usaQ() ? filaQ(i, v.key==='obj' ? 'var(--ink-3)' : rampa(i), txt) : '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+txt+'</div>';
         }
-        if(usaQ() && v.key==='obj') h += resumenQ(); // el total solo en índice y NNA; el índice muestra su promedio comunal
+        if(usaQ() && v.key==='obj'){
+          h += resumenQ(); // el total solo en índice y NNA; el índice muestra su promedio comunal
+          h += '<div class="legsub">NNA de '+edades()+' por manzana</div>';
+          for(var i=nnaBreaks.length;i>=0;i--){
+            var lo = i===0 ? null : nnaBreaks[i-1], hi = i<nnaBreaks.length ? nnaBreaks[i] : null;
+            var tx = lo===null ? (hi===null ? 'todas iguales' : 'menos de '+fmt(hi)) : (hi===null ? fmt(lo)+' o más' : fmt(lo)+' a '+fmt(hi-1));
+            h += '<div class="legrow"><i style="background:'+rampaN(i)+'"></i>'+tx+' NNA</div>';
+          }
+        }
       } else {
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
@@ -2879,6 +2899,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       breaks = st.v.pond
         ? quintilesPond(filas.filter(function(r){ var x = r.v[st.v.k]; return x!==null && x!==undefined; }).map(function(r){ return [r.v[st.v.k], r.v[KW]]; }))
         : quintiles(vals);
+      if(st.v.key==='obj') nnaBreaks = quintiles(filas.filter(function(r){ return r.v[0] > 0; }).map(function(r){ return r.v[KNN] || 0; }));
       capaPol.clearLayers();
       filas.forEach(function(r){
         var lyr = L.geoJSON(r.g, {style: function(){ return estilo(r,false); }});
