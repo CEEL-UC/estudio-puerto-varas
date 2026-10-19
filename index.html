@@ -903,6 +903,12 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .leaflet-tooltip .tt-grid b{font-family:"IBM Plex Mono",monospace;font-weight:600;color:#181d1a;text-align:right}
 .leaflet-tooltip .tt-grid .on{color:#181d1a;font-weight:700}
 .leaflet-tooltip .tt-warn{margin-top:6px;font-size:10.5px;color:#b36b10}
+/* detalle del mapa del Censo: casi transparente y siempre al lado del polígono, nunca encima */
+.leaflet-tooltip.tt-censo{background:rgba(255,255,255,.5);box-shadow:none;border:1px solid rgba(26,31,28,.4);text-shadow:0 0 2px #fff,0 0 4px #fff,0 0 6px #fff}
+.leaflet-tooltip.tt-censo:before{display:none}
+.leaflet-tooltip.tt-censo .tt-sub{color:#2f3632}
+.leaflet-tooltip.tt-censo .tt-grid{color:#2f3632}
+.leaflet-tooltip.tt-censo .tt-warn{color:#8a4f05}
 @media (max-width:760px){ #censomap{height:420px} .censo-vars{width:auto;max-height:none} }
 .gpspin{background:none;border:none}
 .gpspin svg{display:block;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
@@ -2801,6 +2807,45 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         (st.v.cat ? ' · '+fmt(alta)+' en polígonos de alta densidad' : '')+'. Por manzana: al pasar el cursor.</small></div>';
     }
     var nulosLey = 0, totalLey = 0;
+    // detalle al pasar el cursor: se ubica fuera del rectángulo que encierra al polígono (a la derecha, izquierda,
+    // abajo o arriba) y sin quedar bajo los cuadros de leyenda e indicadores, que van por encima del mapa. Si no hay
+    // lugar libre (polígonos enormes o mapa muy chico), va donde más espacio quede
+    var ttC = null;
+    function mostrarTT(lyr, r){
+      if(!ttC) ttC = L.tooltip({className:'tt-censo', opacity:1, direction:'right', offset:[0,0]});
+      ttC.setContent(tooltip(r)).setLatLng(lyr.getBounds().getCenter());
+      if(!map.hasLayer(ttC)) ttC.openOn(map);
+      var el = ttC.getElement(), W = el.offsetWidth + 8, H = el.offsetHeight + 8;
+      var sz = map.getSize(), b = lyr.getBounds(), M = 4;
+      var a = map.latLngToContainerPoint(b.getNorthWest()), z = map.latLngToContainerPoint(b.getSouthEast());
+      var base = mapDiv.getBoundingClientRect(), obst = [];
+      [boxLeft, boxRight, cleanBtn].forEach(function(o){
+        if(!o.offsetParent || mount.classList.contains('limpio') && o!==cleanBtn) return;
+        var q = o.getBoundingClientRect();
+        obst.push({x0:q.left-base.left, y0:q.top-base.top, x1:q.right-base.left, y1:q.bottom-base.top});
+      });
+      var my = (a.y + z.y)/2, mx = (a.x + z.x)/2, cand = [];
+      [my, H/2, sz.y - H/2].forEach(function(y){
+        cand.push({d:'right', p:[z.x + M, y], x0:z.x + M, x1:z.x + M + W, y0:y - H/2, y1:y + H/2});
+        cand.push({d:'left', p:[a.x - M, y], x0:a.x - M - W, x1:a.x - M, y0:y - H/2, y1:y + H/2});
+      });
+      [mx, W/2, sz.x - W/2].forEach(function(x){
+        cand.push({d:'bottom', p:[x, z.y + M], x0:x - W/2, x1:x + W/2, y0:z.y + M, y1:z.y + M + H});
+        cand.push({d:'top', p:[x, a.y - M], x0:x - W/2, x1:x + W/2, y0:a.y - M - H, y1:a.y - M});
+      });
+      var dentro = function(c){ return c.x0 >= 0 && c.y0 >= 0 && c.x1 <= sz.x && c.y1 <= sz.y; };
+      var libre = function(c){ return !obst.some(function(o){ return c.x0 < o.x1 && c.x1 > o.x0 && c.y0 < o.y1 && c.y1 > o.y0; }); };
+      var ok = cand.filter(function(c){ return dentro(c) && libre(c); })[0] || cand.filter(dentro)[0];
+      if(!ok){
+        // sin lugar completo: el lado con más espacio relativo, centrado en el polígono
+        var esp = [{d:'right', e:(sz.x - z.x)/W, p:[z.x + M, my]}, {d:'left', e:a.x/W, p:[a.x - M, my]},
+                   {d:'bottom', e:(sz.y - z.y)/H, p:[mx, z.y + M]}, {d:'top', e:a.y/H, p:[mx, a.y - M]}];
+        ok = esp.sort(function(x, y){ return y.e - x.e; })[0];
+      }
+      ttC.options.direction = ok.d;
+      ttC.setLatLng(map.containerPointToLatLng(L.point(ok.p[0], ok.p[1])));
+    }
+    function ocultarTT(){ if(ttC && map.hasLayer(ttC)) map.removeLayer(ttC); }
 
     function render(mover){
       h3.textContent = 'Caracterización Censo 2024, ' + st.comuna;
@@ -2824,9 +2869,8 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       capaPol.clearLayers();
       filas.forEach(function(r){
         var lyr = L.geoJSON(r.g, {style: function(){ return estilo(r,false); }});
-        lyr.bindTooltip(function(){ return tooltip(r); }, {sticky:true});
-        lyr.on('mouseover', function(){ lyr.setStyle(estilo(r,true)); });
-        lyr.on('mouseout', function(){ lyr.setStyle(estilo(r,false)); });
+        lyr.on('mouseover', function(){ lyr.setStyle(estilo(r,true)); mostrarTT(lyr, r); });
+        lyr.on('mouseout', function(){ lyr.setStyle(estilo(r,false)); ocultarTT(); });
         r._lyr = lyr; lyr._r = r;
         capaPol.addLayer(lyr);
       });
