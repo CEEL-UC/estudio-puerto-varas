@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa por manzana</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f2f3f2; --surface:#ffffff; --surface-2:#eceeed; --surface-3:#e2e5e4;
+  --ink:#1a1f1c; --ink-2:#525b56; --ink-3:#828b85;
+  --line:#d6dad7; --line-2:#e6e9e7;
+  --c-pv:#1f5490; --c-pm:#0d8f6e; --c-fr:#8a6ad4; --c-os:#a14a72; --c-extra:#d9861f;
+  --shadow: 2px 2px 0 rgba(26,31,28,.06);
+  --nodata:#c9cecb;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1f1e; --surface:#242827; --surface-2:#2b302e; --surface-3:#343a38;
+    --ink:#eef0ee; --ink-2:#b3bab5; --ink-3:#818985;
+    --line:#3a413e; --line-2:#323835;
+    --c-pv:#6aa0dd; --c-pm:#3bbd97; --c-fr:#ac96e6; --c-os:#d68cae; --c-extra:#f0a94e;
+    --shadow: 2px 2px 0 rgba(0,0,0,.22);
+    --nodata:#8a918d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1c1f1e; --surface:#242827; --surface-2:#2b302e; --surface-3:#343a38;
+  --ink:#eef0ee; --ink-2:#b3bab5; --ink-3:#818985;
+  --line:#3a413e; --line-2:#323835;
+  --c-pv:#6aa0dd; --c-pm:#3bbd97; --c-fr:#ac96e6; --c-os:#d68cae; --c-extra:#f0a94e;
+  --shadow: 2px 2px 0 rgba(0,0,0,.22);
+  --nodata:#8a918d;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;padding-inline:18px;padding-block:0 60px;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:"IBM Plex Mono",ui-monospace,"Segoe UI",monospace;font-weight:600;margin:0;text-wrap:balance}
+.wrap{max-width:1180px;margin:0 auto}
+header{padding-block:32px 8px}
+.eyebrow{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--c-pv);font-weight:700;margin-bottom:12px;font-family:"IBM Plex Mono",monospace}
+.back{font-size:12.5px;color:var(--c-pv);text-decoration:none;font-weight:600}
+.back:hover{text-decoration:underline}
+h1{font-size:clamp(24px,4vw,38px);line-height:1.15;margin-top:10px}
+.lede{color:var(--ink-2);font-size:14.5px;line-height:1.6;max-width:80ch;margin:12px 0 0;text-align:justify}
+.proto{display:inline-block;margin-left:8px;padding:2px 7px;border:1.5px dashed var(--c-extra);color:var(--c-extra);font-size:10.5px;border-radius:2px;vertical-align:middle;letter-spacing:.06em}
+
+.controls{margin-top:22px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.row .lbl{font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;width:78px;flex:none}
+.pillmini{border:1.5px solid var(--line);background:transparent;color:var(--ink-3);font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:2px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:border-color .15s ease,color .15s ease,background .15s ease}
+.pillmini:hover{border-color:var(--ink-3);color:var(--ink)}
+.pillmini .dot{width:7px;height:7px;border-radius:1px;background:var(--dotc,var(--ink-3))}
+.pillmini[aria-pressed="true"]{background:var(--dotc,var(--c-pv));border-color:var(--dotc,var(--c-pv));color:#fff}
+.pillmini[aria-pressed="true"] .dot{background:#fff}
+@media (max-width:640px){.row .lbl{width:100%}}
+
+.mapwrap{position:relative;margin-top:14px}
+#map{height:640px;width:100%;border-radius:2px;border:1px solid var(--line);background:var(--surface-2)}
+@media (max-width:700px){#map{height:520px}}
+.mapoverlay{position:absolute;z-index:500;background:color-mix(in srgb, var(--surface) 92%, transparent);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);border:1px solid var(--line);border-radius:2px;padding:10px 13px;font-size:12px;box-shadow:var(--shadow);width:230px;color:var(--ink)}
+.mapoverlay.topleft{top:10px;left:10px}
+.mapoverlay.topright{top:10px;right:10px}
+.mapoverlay h3{font-size:12px;margin-bottom:7px;line-height:1.35}
+.legrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-2);padding:1.5px 0}
+.legrow i{width:14px;height:11px;border-radius:1px;flex:none;border:1px solid rgba(0,0,0,.08)}
+.legrow.nd i{background:var(--nodata);opacity:.8}
+.legnote{font-size:10.5px;color:var(--ink-3);margin-top:7px;line-height:1.45}
+.info .muted{color:var(--ink-3);font-size:11.5px;line-height:1.5}
+.info table{width:100%;border-collapse:collapse;margin-top:4px}
+.info td{padding:2.5px 0;font-size:11.5px;color:var(--ink-2);border-top:1px solid var(--line-2);vertical-align:top}
+.info td.v{text-align:right;color:var(--ink);font-weight:600;font-family:"IBM Plex Mono",monospace;white-space:nowrap;padding-left:8px}
+.info tr.sel td{color:var(--ink);font-weight:700}
+.info .warn{margin-top:6px;font-size:10.5px;color:var(--c-extra);line-height:1.4}
+@media (max-width:700px){
+  .mapoverlay{position:static;width:auto;margin-top:8px;backdrop-filter:none}
+}
+
+.notes{margin-top:26px;border-top:3px solid var(--c-pv);padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}
+@media (max-width:820px){.notes{grid-template-columns:1fr}}
+.notes div{font-size:12.5px;color:var(--ink-2);line-height:1.55;text-align:justify}
+.notes b{color:var(--ink);display:block;font-size:12.5px;margin-bottom:2px}
+.leaflet-tooltip{font-family:"IBM Plex Sans",sans-serif;font-size:11.5px;color:#1a1f1c;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="back" href="https://brojasgonzalo.github.io/estudio-puerto-varas-informe/#mapa">&larr; Volver al mapa de colegios</a>
+  <div class="eyebrow" style="margin-top:18px">Censo 2024 · manzanas y entidades rurales <span class="proto">PROTOTIPO</span></div>
+  <h1>Mapa por manzana</h1>
+  <p class="lede">Cada polígono es una manzana urbana o una entidad rural del Censo 2024, con los datos que publica el INE a ese nivel. Elige una comuna y un indicador; pasa el cursor sobre una manzana para ver su detalle, o haz click para fijarla. Los colores dividen las manzanas de la comuna elegida en cinco grupos con más o menos la misma cantidad de manzanas (menos grupos si muchas tienen el mismo valor).</p>
+</header>
+
+<div class="controls">
+  <div class="row" id="rowComuna"><span class="lbl">Comuna</span></div>
+  <div class="row" id="rowVar"><span class="lbl">Indicador</span></div>
+  <div class="row" id="rowCapas"><span class="lbl">Mostrar</span></div>
+</div>
+
+<div class="mapwrap">
+  <div id="map"></div>
+  <div class="mapoverlay topleft" id="legend"></div>
+  <div class="mapoverlay topright info" id="info"></div>
+</div>
+
+<div class="notes">
+  <div><b>Fuente</b>Cartografía censal y base manzana-entidad del Censo de Población y Vivienda 2024 (INE, diciembre 2025). Colegios: Directorio de establecimientos Mineduc 2025, los mismos del mapa de colegios.</div>
+  <div><b>Datos suprimidos</b>El INE oculta las cifras de personas con menos de 4 casos por manzana. Afecta sobre todo a inmigrantes. Esas manzanas aparecen en gris, no como cero. Los datos de hogares y viviendas no se suprimen.</div>
+  <div><b>Manzanas fusionadas</b>Las manzanas con 1 a 3 viviendas ocupadas fueron unidas por el INE con una vecina, para proteger la confidencialidad. Por eso algunas manzanas se ven más grandes que en la realidad.</div>
+  <div><b>Entidades rurales</b>Sus límites los traza el INE alrededor de las viviendas censadas. Son una referencia estadística, no límites reales en terreno.</div>
+  <div><b>Personas sin manzana</b>Las personas en situación de calle y de operativos especiales solo están a nivel comunal y no aparecen en el mapa (1.314 en Puerto Varas).</div>
+  <div><b>Manzanas pequeñas</b>En manzanas con pocos habitantes un porcentaje cambia mucho con una o dos personas. El detalle avisa cuando la manzana tiene menos de 20 personas.</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="datos_manzanas.js"></script>
+<script>
+(function(){
+var COMUNAS = ['Puerto Varas','Puerto Montt','Frutillar','Osorno'];
+var COMUNA_COLOR = {'Puerto Varas':'--c-pv','Puerto Montt':'--c-pm','Frutillar':'--c-fr','Osorno':'--c-os'};
+var DEPE_COLOR = {'Municipal / SLEP':'--c-pv','Part. Subvencionado':'--c-pm','Part. Pagado':'--c-fr'};
+// índice en el arreglo v: 0 personas, 1 viviendas, luego los indicadores
+var VARS = [
+  {k:2, n:'Escolaridad promedio', u:' años', d:'Años de escolaridad promedio de las personas de 18 años o más.'},
+  {k:3, n:'Educación superior', u:'%', d:'Personas con educación terciaria, maestría o doctorado, sobre las personas de 18 años o más.'},
+  {k:4, n:'Directivos y profesionales', u:'%', d:'Ocupados como directores, gerentes o profesionales (CIUO 1 y 2), sobre el total de ocupados.'},
+  {k:5, n:'Viviendas desocupadas', u:'%', d:'Viviendas particulares desocupadas (en venta, arriendo, temporada u otro motivo), sobre el total de viviendas particulares.'},
+  {k:6, n:'Inmigrantes', u:'%', d:'Personas nacidas fuera de Chile, sobre el total de personas. Muy afectado por la supresión del INE.'},
+  {k:7, n:'60 años o más', u:'%', d:'Personas de 60 años o más, sobre el total de personas.'},
+  {k:8, n:'Hogares que arriendan', u:'%', d:'Hogares que arriendan su vivienda, con o sin contrato, sobre el total de hogares.'}
+];
+var RAMP = ['#fdebd3','#f8c88e','#ee9f4c','#cf6e1d','#94450a'];
+
+var st = {comuna:'Puerto Varas', v:VARS[0], colegios:true, rural:false, fijada:null};
+var css = function(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+var fmt = function(x,u){ if(x===null||x===undefined) return '<span style="color:var(--ink-3)">suprimido</span>'; return (u===' años'? x.toFixed(1) : x.toFixed(1)).replace('.',',') + u; };
+var el = function(t,a){ var e=document.createElement(t); for(var k in (a||{})) e.setAttribute(k,a[k]); return e; };
+
+function pill(row, label, pressed, color, onclick){
+  var b = el('button',{class:'pillmini',type:'button','aria-pressed':pressed?'true':'false'});
+  if(color){ b.style.setProperty('--dotc','var('+color+')'); var d=el('span',{class:'dot'}); b.appendChild(d); }
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click', onclick);
+  document.getElementById(row).appendChild(b);
+  return b;
+}
+var bC = {}, bV = [];
+COMUNAS.forEach(function(c){ bC[c] = pill('rowComuna', c, c===st.comuna, COMUNA_COLOR[c], function(){ st.comuna=c; st.fijada=null; render(true); }); });
+VARS.forEach(function(v,i){ bV[i] = pill('rowVar', v.n, i===0, null, function(){ st.v=v; render(false); }); });
+var bCol = pill('rowCapas','Colegios 2025',true,'--ink-2',function(){ st.colegios=!st.colegios; render(false); });
+var bRur = pill('rowCapas','Entidades rurales',false,'--ink-2',function(){ st.rural=!st.rural; render(false); });
+
+var map = L.map('map',{preferCanvas:true, zoomControl:false});
+L.control.zoom({position:'bottomleft'}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · INE Censo 2024'}).addTo(map);
+var capaPol = L.layerGroup().addTo(map), capaCol = L.layerGroup().addTo(map);
+var breaks = [];
+
+function quintiles(vals){
+  vals = vals.slice().sort(function(a,b){return a-b;});
+  var q=[]; for(var i=1;i<5;i++){ var x=vals[Math.floor(i*vals.length/5)]; if(x!==undefined && x>vals[0] && q.indexOf(x)<0) q.push(x); }
+  return q;
+}
+// con valores repetidos puede haber menos de 5 tramos: se reparten a lo largo de la rampa
+function rampa(i){ var n=breaks.length+1; return RAMP[n===1? 2 : Math.round(i*4/(n-1))]; }
+function colorDe(x){
+  if(x===null||x===undefined) return null;
+  for(var i=0;i<breaks.length;i++){ if(x < breaks[i]) return rampa(i); }
+  return rampa(breaks.length);
+}
+function estilo(r, activo){
+  var x = r.v[st.v.k], c = colorDe(x);
+  return {color: activo? css('--ink') : (r.t==='E'? '#6b726e' : '#ffffff'), weight: activo? 2.5 : (r.t==='E'? .8 : .6),
+          fillColor: c || css('--nodata'), fillOpacity: c? .78 : .45, dashArray: r.t==='E'? '3 2' : null};
+}
+
+function infoHTML(r){
+  var h = '<h3>'+(r.t==='M'?'Manzana':'Entidad rural')+' · '+r.nom+'</h3>';
+  h += '<div class="muted">Código '+r.id+'</div><table>';
+  h += '<tr><td>Personas</td><td class="v">'+r.v[0].toLocaleString('es-CL')+'</td></tr>';
+  h += '<tr><td>Viviendas particulares</td><td class="v">'+r.v[1].toLocaleString('es-CL')+'</td></tr>';
+  VARS.forEach(function(v){ h += '<tr'+(v===st.v?' class="sel"':'')+'><td>'+v.n+'</td><td class="v">'+fmt(r.v[v.k],v.u)+'</td></tr>'; });
+  h += '</table>';
+  if(r.v[0] < 20) h += '<div class="warn">Menos de 20 personas: los porcentajes son poco estables.</div>';
+  if(st.fijada===r) h += '<div class="muted" style="margin-top:6px">Fijada. Click de nuevo para soltarla.</div>';
+  return h;
+}
+function infoVacio(){
+  var n=0,p=0; MZ.forEach(function(r){ if(r.c===st.comuna && (st.rural||r.t==='M')){ n++; p+=r.v[0]; } });
+  document.getElementById('info').innerHTML = '<h3>'+st.comuna+'</h3><div class="muted">'+n.toLocaleString('es-CL')+' polígonos con datos · '+p.toLocaleString('es-CL')+' personas.<br>Pasa el cursor sobre una manzana para ver su detalle.</div>';
+}
+
+function legend(nulos, total){
+  var v = st.v, h = '<h3>'+v.n+'</h3>';
+  var f = function(x){ return x.toFixed(1).replace('.',','); };
+  for(var i=0;i<=breaks.length;i++){
+    var a = i===0? null : breaks[i-1], b = i<breaks.length? breaks[i] : null;
+    var t = a===null? (b===null? 'todas iguales' : 'menos de '+f(b)) : (b===null? f(a)+' o más' : f(a)+' a menos de '+f(b));
+    h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+t+(v.u===' años'?' años':'%')+'</div>';
+  }
+  h += '<div class="legrow nd"><i></i>Sin dato o suprimido ('+nulos+' de '+total+')</div>';
+  h += '<div class="legnote">'+v.d+'</div>';
+  if(st.colegios){
+    h += '<div class="legnote" style="margin-top:9px;color:var(--ink-2)"><b>Colegios</b></div>';
+    Object.keys(DEPE_COLOR).forEach(function(d){ h += '<div class="legrow"><i style="background:'+css(DEPE_COLOR[d])+';border-radius:50%;width:11px;border:2px solid #fff"></i>'+d+'</div>'; });
+  }
+  document.getElementById('legend').innerHTML = h;
+}
+
+function render(mover){
+  COMUNAS.forEach(function(c){ bC[c].setAttribute('aria-pressed', c===st.comuna?'true':'false'); });
+  VARS.forEach(function(v,i){ bV[i].setAttribute('aria-pressed', v===st.v?'true':'false'); });
+  bCol.setAttribute('aria-pressed', st.colegios?'true':'false');
+  bRur.setAttribute('aria-pressed', st.rural?'true':'false');
+
+  var filas = MZ.filter(function(r){ return r.c===st.comuna && (st.rural || r.t==='M'); });
+  var vals = filas.map(function(r){ return r.v[st.v.k]; }).filter(function(x){ return x!==null; });
+  breaks = quintiles(vals);
+  capaPol.clearLayers();
+  var activo = null;
+  filas.forEach(function(r){
+    var lyr = L.geoJSON(r.g, {style: function(){ return estilo(r,false); }});
+    lyr.on('mouseover', function(){ if(st.fijada) return; lyr.setStyle(estilo(r,true)); document.getElementById('info').innerHTML = infoHTML(r); });
+    lyr.on('mouseout', function(){ if(st.fijada) return; lyr.setStyle(estilo(r,false)); infoVacio(); });
+    lyr.on('click', function(){
+      if(st.fijada===r){ st.fijada=null; lyr.setStyle(estilo(r,false)); infoVacio(); return; }
+      if(st.fijada && st.fijada._lyr) st.fijada._lyr.setStyle(estilo(st.fijada,false));
+      st.fijada = r; r._lyr = lyr; lyr.setStyle(estilo(r,true)); document.getElementById('info').innerHTML = infoHTML(r);
+    });
+    r._lyr = lyr;
+    capaPol.addLayer(lyr);
+  });
+  capaCol.clearLayers();
+  if(st.colegios){
+    COLEGIOS.filter(function(c){ return c.c===st.comuna; }).forEach(function(c){
+      var col = css(DEPE_COLOR[c.d] || '--ink-3');
+      L.circleMarker([c.lat,c.lon],{renderer:L.svg(), radius: 4 + Math.sqrt(c.m)/6, color:'#ffffff', weight:2, fillColor:col, fillOpacity:.95})
+        .bindTooltip('<b>'+c.n+'</b><br>'+c.d+' · '+c.m.toLocaleString('es-CL')+' alumnos (2025)', {direction:'top'})
+        .addTo(capaCol);
+    });
+  }
+  legend(filas.length - vals.length, filas.length);
+  if(st.fijada && filas.indexOf(st.fijada)>=0){ st.fijada._lyr.setStyle(estilo(st.fijada,true)); document.getElementById('info').innerHTML = infoHTML(st.fijada); }
+  else { st.fijada=null; infoVacio(); }
+  if(mover){
+    // encuadre en la localidad urbana con más manzanas (la ciudad principal de la comuna)
+    var cuenta = {}, top = null;
+    filas.forEach(function(r){ if(r.t==='M'){ cuenta[r.nom]=(cuenta[r.nom]||0)+1; if(!top||cuenta[r.nom]>cuenta[top]) top=r.nom; } });
+    var b = L.latLngBounds([]);
+    filas.forEach(function(r){ if(r.t==='M' && r.nom===top) b.extend(r._lyr.getBounds()); });
+    map.fitBounds(b, {padding:[20,20]});
+  }
+}
+render(true);
+})();
+</script>
+</body>
+</html>

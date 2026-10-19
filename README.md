@@ -1,7 +1,109 @@
 # Estudio Puerto Varas
 
-Sitio del estudio del CEEL UC sobre educación y migración estudiantil en el entorno de Puerto Varas (Puerto Varas, Puerto Montt, Frutillar, Osorno y el resto de la Región de Los Lagos), 2015-2025.
+Estudio del Centro UC Encuestas y Estudios Longitudinales (CEEL UC) sobre educación y migración estudiantil en el entorno de Puerto Varas: Puerto Varas, Puerto Montt, Frutillar, Osorno y el resto de la Región de Los Lagos, 2015-2025.
 
-Sitio publicado: https://ceel-uc.github.io/estudio-puerto-varas/
+La pregunta de partida es si la llegada de hogares de mayores ingresos durante la pandemia cambió la oferta y la demanda de educación particular pagada en la zona, y quiénes son las familias que llegaron.
 
-Fuentes: microdatos públicos del Ministerio de Educación (Datos Abiertos, Centro de Estudios) y del Censo de Población y Vivienda 2024 (INE).
+**Sitio publicado:** https://ceel-uc.github.io/estudio-puerto-varas/
+
+## Cómo está organizado el proyecto
+
+El proyecto vive en dos lugares que cumplen funciones distintas:
+
+| Lugar | Qué guarda | Quién lo ve |
+|---|---|---|
+| Carpeta del proyecto en Dropbox | Todo: datos fuente (~16 GB), código, resultados y borradores | Equipo del proyecto |
+| Este repositorio (GitHub) | El sitio, el código y los resultados agregados. No guarda datos fuente ni microdatos por estudiante | Público |
+
+La estructura de carpetas del repositorio es un espejo de la de Dropbox, con los mismos nombres, para que cualquier ruta se pueda ubicar en los dos lados.
+
+```
+estudio-puerto-varas/
+├── index.html                  Sitio (GitHub Pages lo publica desde la raíz de main)
+├── datos_manzanas.js           Datos del mapa del Censo 2024 por manzana
+├── datos_cohortes.js           Datos del gráfico de año de llegada
+├── logo_ceel.png
+├── Análisis y metadata/
+│   ├── Dofiles/                Código en Stata y Python (ver orden abajo)
+│   ├── Outputs/                Resultados agregados: tablas, Excel de respaldo, informes
+│   │   ├── Indice socioeconomico manzanas/   Índice por manzana: documento metodológico y Excel con fórmulas
+│   │   └── prototipo_manzanas/               Primer prototipo del mapa por manzana
+│   ├── graficado/              Datos consolidados para gráficos
+│   └── Resumen de datos.md     Primer mapeo de fuentes (septiembre 2026)
+├── Datos/
+│   └── README.md               Catálogo de las fuentes: qué hay en Dropbox y de dónde se descarga
+└── sincronizar_dropbox.ps1     Copia al repo los cambios de la carpeta de Dropbox
+```
+
+## Flujo de datos
+
+```
+Datos fuente (Dropbox)          Código (Dofiles/)                   Productos
+──────────────────────          ─────────────────                   ─────────
+Mineduc: directorio,      ──►   00_master.do (paneles)        ──►   Outputs/ (tablas Stata y Excel)
+resumen y matrícula             01_analisis.do
+por estudiante                  02_migracion_destino.do
+                                03_migracion_regional.py      ──►   Secciones 01 a 03 del sitio
+                                04_cohortes_llegada.py        ──►   datos_cohortes.js
+                                05_matricula_niveles.py
+Censo 2024: base manzana  ──►   prep_manzanas_censo.py        ──►   datos_manzanas.js (sección 04)
+y cartografía Región 10         indice_socioeconomico_*.py    ──►   Outputs/Indice socioeconomico manzanas/
+Todo lo anterior          ──►   06_respaldo_sitio_excel.py    ──►   Excel de respaldo de las cifras del sitio
+                                07 y 08 (ingreso a 1° básico) ──►   Informe Word
+```
+
+Orden de ejecución:
+
+1. `00_master.do`: filtra los archivos nacionales de Mineduc a las comunas del estudio y arma los paneles (directorio, resumen de matrícula, matrícula por estudiante).
+2. `01_analisis.do`: indicadores de matrícula por dependencia y curso, establecimientos y perfil por comuna.
+3. `02_migracion_destino.do`: destino de los estudiantes que salen de cada comuna.
+4. `03_migracion_regional.py` a `05_matricula_niveles.py`: datos de las secciones 01 a 03 del sitio, con la Región de Los Lagos completa.
+5. `prep_manzanas_censo.py` e `indice_socioeconomico_manzanas*.py`: mapa por manzana e índice socioeconómico (documento metodológico en `indice_socioeconomico_manzanas_documento.md`).
+6. `06_respaldo_sitio_excel.py`: respaldo en Excel de todas las cifras del sitio.
+7. `07_analisis_ingreso_1basico.py` y `08_informe_ingreso_1basico_word.py`: informe sobre ingreso a 1° básico y año de llegada.
+
+Requisitos: Stata y Python 3.12 con `polars`, `pyarrow`, `numpy`, `shapely`, `openpyxl` y `python-docx`.
+
+**Rutas.** Los scripts tienen la ruta de la carpeta del proyecto escrita al inicio (`global raiz` en Stata, constantes en mayúscula como `SALIDA` o `REPO` en Python). Para correrlos en otro computador hay que cambiar esas líneas para que apunten a la carpeta de Dropbox y a la copia local de este repositorio.
+
+## Qué no se publica y por qué
+
+- **Datos fuente.** Pesan alrededor de 16 GB y GitHub no admite archivos sobre 100 MB. Todos son públicos y se pueden descargar de nuevo; el catálogo con los enlaces está en [Datos/README.md](Datos/README.md).
+- **Microdatos por estudiante.** Los paneles con un registro por estudiante (identificador MRUN de Mineduc) se quedan solo en Dropbox, aunque el identificador venga enmascarado. En el repositorio solo hay resultados agregados por establecimiento, comuna o manzana.
+
+Esto lo controla el archivo `.gitignore`: aunque alguien copie la carpeta completa, git no toma esos archivos.
+
+## Cómo trabajar en este repositorio
+
+**Para editar el sitio:** se modifica `index.html` (o se regeneran los `.js` con los scripts), se revisa en el navegador abriendo el archivo local y se sube con commit y push a `main`. GitHub Pages publica el cambio en uno o dos minutos.
+
+**Para traer al repo lo nuevo de Dropbox:**
+
+```powershell
+git pull
+.\sincronizar_dropbox.ps1 -Dropbox "C:\Users\<usuario>\Dropbox\Proyectos personales\Estudio Puerto Varas"
+git status
+git add -A
+git commit -m "Actualiza código y resultados desde Dropbox"
+git push
+```
+
+Antes de hacer commit, revisar en `git status` que no aparezca ningún archivo de datos ni de estudiantes.
+
+**Reglas básicas:**
+
+- Hacer `git pull` antes de empezar a trabajar y antes de cada commit; varias personas trabajan sobre el mismo repositorio.
+- Commits pequeños, con un mensaje que diga qué cambió en el sitio o en el análisis.
+- `main` es lo que está publicado. Para cambios grandes o de prueba, trabajar en una rama y abrir un pull request para que otra persona lo revise antes de publicarlo.
+- La fuente de verdad del análisis es la carpeta de Dropbox; el repositorio es su copia pública.
+
+## Fuentes
+
+- Ministerio de Educación, Centro de Estudios, [Datos Abiertos](https://datosabiertos.mineduc.cl/): Directorio de Establecimientos, Resumen de Matrícula por Establecimiento y Matrícula por Estudiante.
+- Agencia de Calidad de la Educación: SIMCE 2025.
+- Instituto Nacional de Estadísticas: Censo de Población y Vivienda 2024 (microdatos y cartografía) y matrices de migración interna.
+- Ministerio de Desarrollo Social y Familia: Encuesta CASEN 2017, 2022 y 2024.
+
+## Contacto
+
+Centro UC Encuestas y Estudios Longitudinales, Pontificia Universidad Católica de Chile. https://encuestas.uc.cl

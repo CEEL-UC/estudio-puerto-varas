@@ -1,0 +1,20 @@
+# Datos fuente: viven en el Dropbox del proyecto, no en GitHub (pesan ~16 GB e
+# incluyen microdatos por estudiante). Solo se versiona la documentación.
+Datos/**
+!Datos/
+!Datos/README.md
+
+# Salidas con un registro por estudiante (MRUN): nunca se publican
+Análisis y metadata/Outputs/panel_matricula_estudiante_etiquetado.dta
+Análisis y metadata/Outputs/panel_destino_salientes.dta
+Análisis y metadata/Outputs/_*.dta
+
+# Archivos temporales de Office, Stata y Python
+~$*
+*.tmp
+*.smcl
+*.log
+__pycache__/
+.ipynb_checkpoints/
+desktop.ini
+Thumbs.db
