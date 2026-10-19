@@ -1950,14 +1950,15 @@ makeNivelPanel('panel-estabrural',{
     Object.keys(vistaBtns).forEach(function(k){ vistaBtns[k].setAttribute('aria-pressed', k===vista?'true':'false'); });
     Object.keys(yearBtns).forEach(function(y){ yearBtns[y].setAttribute('aria-pressed', +y===anio?'true':'false'); });
     Object.keys(depBtns).forEach(function(k){ depBtns[k].setAttribute('aria-pressed', k===dep?'true':'false'); });
-    var totAll = 0, totVis = 0, porCat = {};
-    fs.forEach(function(r){ cs.forEach(function(ct){ totAll += r[ct.k]; porCat[ct.k] = (porCat[ct.k]||0) + r[ct.k]; if(!apagadas[ct.n]) totVis += r[ct.k]; }); });
+    // ocultar una categoría no cambia la base: barras, tajadas y porcentajes son siempre sobre la matrícula total
+    var totAll = 0, porCat = {};
+    fs.forEach(function(r){ cs.forEach(function(ct){ totAll += r[ct.k]; porCat[ct.k] = (porCat[ct.k]||0) + r[ct.k]; }); });
     statBox.innerHTML = fmt(totAll)+'<small>matrícula tramo regular '+anio+'</small>';
-    if(vista==='torta'){ torta(cs, porCat, totVis); leyenda(cs, porCat, totVis); tablaOrig(); return; }
+    if(vista==='torta'){ torta(cs, porCat, totAll); leyenda(cs, porCat, totAll); tablaOrig(); return; }
 
     // barras apiladas por año de llegada
     var W = 640, H = 300, PL = 44, PR = 8, PT = 22, PB = 34, n = fs.length;
-    var alto = fs.map(function(r){ var s = 0; cs.forEach(function(ct){ if(!apagadas[ct.n]) s += r[ct.k]; }); return totVis ? s/totVis : 0; });
+    var alto = fs.map(function(r){ var s = 0; cs.forEach(function(ct){ if(!apagadas[ct.n]) s += r[ct.k]; }); return totAll ? s/totAll : 0; });
     var maxP = Math.max.apply(null, alto.concat([0.01]));
     var paso = maxP > 0.3 ? 0.1 : (maxP > 0.12 ? 0.05 : 0.02), top = Math.ceil(maxP/paso)*paso;
     var y = function(v){ return PT + (H-PT-PB)*(1 - v/top); };
@@ -1971,8 +1972,8 @@ makeNivelPanel('panel-estabrural',{
       var cx = PL + colW*i + colW/2, acc = 0;
       var grupo = sv('g',{class:'coh-bar'+(cohorteSel!=null && cohorteSel!==r[0] ? ' dim' : '')});
       cs.forEach(function(ct){
-        if(apagadas[ct.n] || !r[ct.k] || !totVis) return;
-        var v = r[ct.k]/totVis, rect = sv('rect',{x:(cx-bw/2).toFixed(1),y:y(acc+v).toFixed(1),width:bw.toFixed(1),height:Math.max(0,y(acc)-y(acc+v)).toFixed(1)});
+        if(apagadas[ct.n] || !r[ct.k] || !totAll) return;
+        var v = r[ct.k]/totAll, rect = sv('rect',{x:(cx-bw/2).toFixed(1),y:y(acc+v).toFixed(1),width:bw.toFixed(1),height:Math.max(0,y(acc)-y(acc+v)).toFixed(1)});
         rect.style.fill = 'var('+ct.c+')'; grupo.appendChild(rect); acc += v;
       });
       var hit = sv('rect',{x:(cx-colW/2).toFixed(1),y:PT,width:colW.toFixed(1),height:H-PT-PB,fill:'transparent',class:'coh-hit'});
@@ -1982,7 +1983,7 @@ makeNivelPanel('panel-estabrural',{
       hit.addEventListener('pointerenter',function(e){
         var h = '<div class="ttyear">'+(r[0]===PRIMERO ? 'En '+(esReg?'la región':'la comuna')+' desde '+PRIMERO+' o antes' : 'Llegaron en '+r[0])+'</div>';
         cs.forEach(function(ct){ if(r[ct.k]) h += '<div class="ttrow"><span class="ttname"><i style="background:var('+ct.c+')"></i>'+ct.n+'</span><b>'+fmt(r[ct.k])+'</b></div>'; });
-        h += '<div class="ttrow" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2)"><span class="ttname">% de la matrícula visible</span><b>'+pct(acc)+'</b></div>';
+        h += '<div class="ttrow" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2)"><span class="ttname">% de la matrícula del año</span><b>'+pct(acc)+'</b></div>';
         showTT(e,h);
       });
       hit.addEventListener('pointermove',moveTT);
@@ -1992,7 +1993,7 @@ makeNivelPanel('panel-estabrural',{
     });
     var xt = sv('text',{x:(PL+(W-PL-PR)/2).toFixed(1),y:H-4,'text-anchor':'middle',class:'axis-label'}); xt.textContent = 'Año de llegada'; svg.appendChild(xt);
     chartHost.innerHTML = ''; chartHost.appendChild(svg);
-    leyenda(cs, porCat, totVis);
+    leyenda(cs, porCat, totAll);
     tablaOrig();
   }
 
@@ -2003,6 +2004,7 @@ makeNivelPanel('panel-estabrural',{
     cs.forEach(function(ct){
       var v = porCat[ct.k]||0; if(!v || !tot) return;
       var f = v/tot, a1 = a0 + f*2*Math.PI, d;
+      if(apagadas[ct.n]){ a0 = a1; return; } // la tajada oculta deja su hueco: el resto no se reescala
       if(f > 0.9999) d = 'M'+C+','+(C-R)+'A'+R+','+R+' 0 1,1 '+(C-0.01)+','+(C-R)+'Z';
       else d = 'M'+C+','+C+'L'+(C+R*Math.cos(a0)).toFixed(2)+','+(C+R*Math.sin(a0)).toFixed(2)+'A'+R+','+R+' 0 '+(f>0.5?1:0)+',1 '+(C+R*Math.cos(a1)).toFixed(2)+','+(C+R*Math.sin(a1)).toFixed(2)+'Z';
       var path = sv('path',{d:d}); path.style.fill = 'var('+ct.c+')'; svg.appendChild(path);
@@ -2018,16 +2020,17 @@ makeNivelPanel('panel-estabrural',{
     chartHost.innerHTML = ''; chartHost.appendChild(svg);
   }
 
-  // leyenda fija: los porcentajes son siempre sobre la matrícula total del año
-  function leyenda(cs, porCat, totVis){
+  // leyenda: un click oculta o muestra la categoría; cifras y porcentajes no cambian (siempre sobre el total del año)
+  function leyenda(cs, porCat, tot){
     leg.innerHTML = '';
     cs.forEach(function(ct){
-      var b = heln('div',{class:'torta-item fija'});
+      var b = heln('button',{class:'torta-item',type:'button','aria-pressed':apagadas[ct.n]?'false':'true'});
       b.style.setProperty('--dotc','var('+ct.c+')');
-      b.innerHTML = '<span class="sq"></span><span>'+ct.n+'</span><b>'+fmt(porCat[ct.k]||0)+'</b><span class="pct">'+(totVis ? pct((porCat[ct.k]||0)/totVis) : '')+'</span>';
+      b.innerHTML = '<span class="sq"></span><span>'+ct.n+'</span><b>'+fmt(porCat[ct.k]||0)+'</b><span class="pct">'+(tot ? pct((porCat[ct.k]||0)/tot) : '')+'</span>';
+      b.addEventListener('click',function(){ apagadas[ct.n] = !apagadas[ct.n]; render(); });
       leg.appendChild(b);
     });
-    nota.textContent = 'Porcentajes sobre la matrícula total del año.';
+    nota.textContent = 'Click en una categoría para ocultarla o mostrarla. Los porcentajes son siempre sobre la matrícula total del año.';
   }
 
   // tabla de comunas de origen (todas las cohortes, o la cohorte seleccionada)
