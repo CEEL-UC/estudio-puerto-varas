@@ -879,6 +879,13 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .censo-legend .legrow{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-2);padding:1.5px 0}
 .censo-legend .legrow i{width:14px;height:11px;border-radius:1px;flex:none;border:1px solid rgba(0,0,0,.08)}
 .censo-legend .legnote{font-size:10.5px;color:var(--ink-3);margin-top:7px;line-height:1.45}
+.mapoverlay.censo-legend{max-height:calc(100% - 95px);overflow-y:auto}
+.censo-legend button.legq{width:100%;background:none;border:none;font:inherit;text-align:left;cursor:pointer;padding:2px 0}
+.censo-legend button.legq:hover{color:var(--ink)}
+.censo-legend button.legq b{margin-left:auto;font:600 11px "IBM Plex Mono",monospace;color:var(--ink);padding-left:8px}
+.censo-legend button.legq[aria-pressed="false"]{opacity:.42;text-decoration:line-through}
+.censo-legend button.legq[aria-pressed="false"] i{background:transparent!important}
+.censo-legend .legsub{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:700;margin:8px 0 3px}
 .censo-vars{max-height:520px;overflow:auto;width:230px}
 .censo-vars .vgrp{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-family:"IBM Plex Mono",monospace;font-weight:600;margin:9px 0 3px}
 .censo-vars .vgrp:first-of-type{margin-top:0}
@@ -2483,7 +2490,8 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // un solo tono, de claro a oscuro, con saltos de luminosidad iguales (OKLab L 0,95 a 0,43, pasos de 0,13)
     var RAMP = ['#feebd2','#efb87c','#db832b','#b35703','#813700'];
     var NODATA = '#b4bab6'; // gris fijo: se tiene que ver igual en tema claro y oscuro
-    var st = {comuna: comunaIni, v: VARS[0], pest: 'pob', colegios: false, rural: false, tr: {n05:true, n613:true, n1417:false}};
+    var st = {comuna: comunaIni, v: VARS[0], pest: 'pob', colegios: false, rural: false, tr: {n05:true, n613:true, n1417:false},
+              q: {0:true, 1:true, 2:true, 3:true, 4:true}}; // quintiles del índice que se muestran (mínimo uno)
     var css = function(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var num = function(x,v){ return x.toFixed(v.dec).replace('.',',') + v.u; };
 
@@ -2594,7 +2602,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     armarVars();
 
-    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, KO = -1, VNNA = null, VOBJ = null;
+    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, KO = -1, KQ = -1, VNNA = null, VOBJ = null;
     var obj = null; // resumen de nivel alto con NNA en la comuna que se está mostrando
     // categorías de nivel alto con NNA (valor en v[KO]): 2 = quintil 4-5 con alta densidad de NNA, 1 = quintil 4-5, 0 = quintil 1 a 3
     var CATC = [RAMP[0], RAMP[2], RAMP[4]];
@@ -2629,8 +2637,13 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       for(var i=0;i<breaks.length;i++){ if(x < breaks[i]) return rampa(i); }
       return rampa(breaks.length);
     }
+    // filtro por quintil: solo en el índice y en nivel alto con NNA, y solo si hay algún quintil apagado
+    function usaQ(){ return (st.v.key==='ise' || st.v.cat) && obj && !obj.sinIse; }
+    function todosQ(){ return [0,1,2,3,4].every(function(i){ return st.q[i]; }); }
+    function enFiltro(r){ return !usaQ() || todosQ() || (r.v[KQ]!==null && r.v[KQ]!==undefined && st.q[r.v[KQ]]); }
     function estilo(r, activo){
       var c = colorDe(r.v[st.v.k]);
+      if(!enFiltro(r)) return {color: activo ? '#1a1f1c' : '#ffffff', weight: activo ? 1.5 : .3, fillColor: c || NODATA, fillOpacity: .07, dashArray: r.t==='E' ? '3 2' : null};
       var e = {color: activo ? '#1a1f1c' : (r.t==='E' ? '#6b726e' : '#ffffff'), weight: activo ? 2.5 : (r.t==='E' ? .8 : .6),
               // las entidades rurales son polígonos grandes: van más translúcidas para que no tapen la ciudad
               fillColor: c || NODATA, fillOpacity: (c ? .8 : .6) * (r.t==='E' ? .6 : 1), dashArray: r.t==='E' ? '3 2' : null};
@@ -2653,13 +2666,14 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     function calcObj(filas){
       var bI = quintilesPond(filas.filter(function(r){ var x = r.v[KI]; return x!==null && x!==undefined; }).map(function(r){ return [r.v[KI], r.v[KW]]; }));
       var tot = 0; filas.forEach(function(r){ tot += r.v[KNN] || 0; });
-      if(bI.length < 4){ filas.forEach(function(r){ r.v[KO] = null; }); return {n:0, nna:0, tot:tot, sinIse:true}; }
+      if(bI.length < 4){ filas.forEach(function(r){ r.v[KO] = null; r.v[KQ] = null; }); return {n:0, nna:0, tot:tot, sinIse:true}; }
       var dens = filas.map(function(r){ return r.v[KN]; }).filter(function(x){ return x!==null && x!==undefined; }).sort(function(a,b){ return a-b; });
       var cN = dens[Math.floor(3*dens.length/5)];
       var o = {n:0, nna:0, tot:tot};
       filas.forEach(function(r){
         var i = r.v[KI], d = r.v[KN];
-        if(i===null || i===undefined){ r.v[KO] = null; return; }
+        if(i===null || i===undefined){ r.v[KO] = null; r.v[KQ] = null; return; }
+        r.v[KQ] = bI.filter(function(b){ return i>=b; }).length; // 0 = quintil 1 ... 4 = quintil 5
         r.v[KO] = i<bI[2] ? 0 : (d!==null && d!==undefined && d>=cN && d>0 ? 2 : 1);
         if(r.v[KO]===2){ o.n++; o.nna += r.v[KNN] || 0; }
       });
@@ -2667,7 +2681,10 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     function tooltip(r){
       var h = '<span class="tt-title">'+(r.t==='M' ? 'Manzana' : 'Entidad rural')+' · '+r.nom+'</span>'+
-        '<span class="tt-sub">'+fmt(r.v[0])+' personas · '+fmt(r.v[1])+' viviendas particulares</span><div class="tt-grid">';
+        '<span class="tt-sub">'+fmt(r.v[0])+' personas · '+fmt(r.v[1])+' viviendas particulares</span>'+
+        '<span class="tt-sub" style="color:#181d1a"><b>'+fmt(r.v[KNN])+' NNA de '+edades()+'</b> · '+
+          TRAMOS.map(function(t){ return t[1]+'-'+t[2]+': '+fmt(r.v[2+MZK.indexOf(t[0])]||0); }).join(' · ')+
+          (r.v[KQ]!==null && r.v[KQ]!==undefined ? '<br>Quintil '+(r.v[KQ]+1)+' del índice socioeconómico' : '')+'</span><div class="tt-grid">';
       VARS.forEach(function(v){
         if(v.p!==st.pest) return;
         var x = r.v[v.k], cls = v===st.v ? ' class="on"' : '';
@@ -2714,6 +2731,9 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         h += '<div class="legnote">Sin dato en esta comuna: tiene muy pocos polígonos para estandarizar el índice (tamaño efectivo menor a 30).</div>';
       } else if(v.cat){
         for(var i=2;i>=0;i--) h += '<div class="legrow"><i style="background:'+CATC[i]+(i===2 ? ';outline:1.5px solid #1a1f1c' : '')+'"></i>'+CATN[i]+'</div>';
+        h += '<div class="legsub">Filtrar por quintil del índice</div>';
+        for(var i=4;i>=0;i--) h += filaQ(i, RAMP[i], 'Quintil '+(i+1)+(i===4 ? ', mayor nivel' : i===0 ? ', menor nivel' : ''));
+        h += resumenNNA();
       } else if(v.pond && !breaks.length){
         h += '<div class="legnote">Sin dato en esta comuna'+(v.key==='ise' ? ': tiene muy pocos polígonos para estandarizar el índice (tamaño efectivo menor a 30).' : '.')+'</div>';
       } else if(v.pond){
@@ -2721,8 +2741,10 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         var NQ = {4:'Quintil 5, 20% de mayor nivel', 0:'Quintil 1, 20% de menor nivel'};
         for(var i=breaks.length;i>=0;i--){
           if(i>0 && i<breaks.length && breaks[i-1]===breaks[i]) continue;
-          h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+(NQ[i] || 'Quintil '+(i+1))+': '+tramo(i)+u+'</div>';
+          var txt = (NQ[i] || 'Quintil '+(i+1))+': '+tramo(i)+u;
+          h += v.key==='ise' && usaQ() ? filaQ(i, rampa(i), txt) : '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+txt+'</div>';
         }
+        if(v.key==='ise' && usaQ()) h += resumenNNA();
       } else {
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
@@ -2748,14 +2770,44 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         else h += '<div class="legnote">El mapa de colegios cubre solo las 4 comunas del estudio.</div>';
       }
       boxLeft.innerHTML = h;
+      boxLeft.querySelectorAll('.legq').forEach(function(b){
+        b.addEventListener('click', function(){
+          var i = +b.getAttribute('data-q');
+          st.q[i] = !st.q[i];
+          if(![0,1,2,3,4].some(function(k){ return st.q[k]; })) st.q[i] = true; // siempre queda al menos uno
+          capaPol.eachLayer(function(l){ if(l._r) l.setStyle(estilo(l._r,false)); });
+          leyenda(nulosLey, totalLey);
+        });
+      });
     }
+    // NNA por quintil del índice, sobre los polígonos visibles (con o sin entidades rurales)
+    function nnaQ(i){ var n = 0; filasVis.forEach(function(r){ if(r.v[KQ]===i) n += r.v[KNN]||0; }); return n; }
+    function filaQ(i, color, txt){
+      return '<button type="button" class="legrow legq" data-q="'+i+'" aria-pressed="'+(st.q[i]?'true':'false')+'" title="Click para mostrar u ocultar este quintil">'+
+        '<i style="background:'+color+'"></i><span>'+txt+'</span><b>'+fmt(nnaQ(i))+'</b></button>';
+    }
+    // resumen: total de NNA de las edades elegidas en los quintiles elegidos
+    function resumenNNA(){
+      var n = 0, m = 0, alta = 0, tot = 0;
+      filasVis.forEach(function(r){
+        tot += r.v[KNN]||0;
+        if(r.v[KQ]===null || r.v[KQ]===undefined || !st.q[r.v[KQ]]) return;
+        n += r.v[KNN]||0; m++; if(r.v[KO]===2) alta += r.v[KNN]||0;
+      });
+      var qs = [0,1,2,3,4].filter(function(i){ return st.q[i]; }).map(function(i){ return i+1; });
+      var donde = st.rural ? st.comuna : st.comuna+', zona urbana';
+      return '<div class="legmedia"><span>NNA de '+edades()+' · '+(qs.length===5 ? 'todos los quintiles' : 'quintil'+(qs.length>1?'es ':' ')+qs.join(', '))+'</span>'+
+        '<b>'+fmt(n)+'</b><small>en '+fmt(m)+' polígonos · '+(tot ? (100*n/tot).toFixed(1).replace('.',',') : '0')+'% de los '+fmt(tot)+' NNA de '+donde+
+        (st.v.cat ? ' · '+fmt(alta)+' en polígonos de alta densidad' : '')+'. Por manzana: al pasar el cursor.</small></div>';
+    }
+    var nulosLey = 0, totalLey = 0;
 
     function render(mover){
       h3.textContent = 'Caracterización Censo 2024, ' + st.comuna;
       comunaRow.marcar(st.comuna);
       bRur.setAttribute('aria-pressed', st.rural ? 'true' : 'false');
       bCol.setAttribute('aria-pressed', st.colegios ? 'true' : 'false');
-      boxRight.querySelector('.vedad').hidden = !(st.v.cat || st.v.key==='nna');
+      boxRight.querySelector('.vedad').hidden = !(st.v.cat || st.v.key==='nna' || st.v.key==='ise');
       boxRight.querySelectorAll('.vtr').forEach(function(b){ b.setAttribute('aria-pressed', st.tr[TRAMOS[+b.getAttribute('data-t')][0]] ? 'true' : 'false'); });
       varBtns.forEach(function(b){ b.setAttribute('aria-pressed', VARS[+b.getAttribute('data-i')]===st.v ? 'true' : 'false'); });
       tabBtns.forEach(function(b){ b.setAttribute('aria-selected', b.getAttribute('data-p')===st.pest ? 'true' : 'false'); });
@@ -2775,7 +2827,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         lyr.bindTooltip(function(){ return tooltip(r); }, {sticky:true});
         lyr.on('mouseover', function(){ lyr.setStyle(estilo(r,true)); });
         lyr.on('mouseout', function(){ lyr.setStyle(estilo(r,false)); });
-        r._lyr = lyr;
+        r._lyr = lyr; lyr._r = r;
         capaPol.addLayer(lyr);
       });
 
@@ -2789,7 +2841,8 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
             .addTo(capaCol);
         });
       }
-      leyenda(filas.length - vals.length, filas.length);
+      nulosLey = filas.length - vals.length; totalLey = filas.length;
+      leyenda(nulosLey, totalLey);
 
       if(mover){
         // encuadre en la localidad urbana con más manzanas (la ciudad principal de la comuna)
@@ -2811,6 +2864,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       // NNA y NNA por hectárea van en dos posiciones nuevas al final de v, se recalculan al cambiar los tramos de edad
       KNN = 2 + MZK.length; KN = KNN + 1;
       KO = KN + 1; // categoría de nivel alto con NNA, se llena en cada render
+      KQ = KO + 1; // quintil del índice socioeconómico (0 a 4), se llena en cada render
       VNNA = VARS.filter(function(v){ return v.key==='nna'; })[0]; VNNA.k = KN;
       VOBJ = VARS.filter(function(v){ return v.key==='obj'; })[0]; VOBJ.k = KO;
       calcNNA();
