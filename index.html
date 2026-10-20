@@ -1007,6 +1007,9 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .legmedia span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);font-weight:700}
 .legmedia b{font:600 16px "IBM Plex Mono",monospace;color:var(--ink)}
 .legmedia small{font-size:10.5px;color:var(--ink-3);line-height:1.35}
+.legmedia .legur{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.legmedia .legur span{font-weight:600}
+.legmedia .legur b{font-size:14px}
 .banner{position:relative;margin:0 -18px;background:radial-gradient(900px 160px at 8% 0%, color-mix(in srgb, var(--c-pv) 22%, transparent), transparent 70%),radial-gradient(700px 120px at 100% 100%, color-mix(in srgb, var(--c-pm) 10%, transparent), transparent 70%),var(--bg)}
 .banner::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-pv) 55%, transparent) 20%, color-mix(in srgb, var(--c-pv) 55%, transparent) 80%, transparent)}
 .banner-in{max-width:1216px;margin:0 auto;padding:18px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -1216,6 +1219,14 @@ var tt = document.getElementById('tt');
 function showTT(e,html){ tt.innerHTML=html; tt.classList.add('show'); moveTT(e); }
 function moveTT(e){ var x=e.clientX+16,y=e.clientY+16; var vw=window.innerWidth,vh=window.innerHeight; if(x+230>vw) x=e.clientX-230; if(y+90>vh) y=e.clientY-90; tt.style.left=x+'px'; tt.style.top=y+'px'; }
 function hideTT(){ tt.classList.remove('show'); }
+// detalle fijo sobre un punto de la pantalla (la parte de arriba de una barra): centrado y por encima, o por debajo si no cabe
+function showTTAt(html,x,y){
+  tt.innerHTML=html; tt.classList.add('show');
+  var w=tt.offsetWidth, h=tt.offsetHeight, vw=window.innerWidth;
+  var l=Math.max(4, Math.min(vw-w-4, x-w/2)), t=y-h-8;
+  if(t<4) t=y+8;
+  tt.style.left=l+'px'; tt.style.top=t+'px';
+}
 
 function ttRows(names,colorMap,vals,i){
   var h=''; names.forEach(function(name){
@@ -1243,14 +1254,14 @@ function smoothPath(pts){
 
 var CW=480, CH=200, PADL=32, PADR=12, PADT=12, PADB=20;
 
-function scaffold(svg,maxV,years){
+function scaffold(svg,maxV,years,suf){
   var n=years.length;
   var x = function(i){ return PADL + i*(CW-PADL-PADR)/(n-1); };
   var y = function(v){ return CH-PADB - (v/maxV)*(CH-PADT-PADB); };
   [0,0.5,1].forEach(function(f){
     var yy=CH-PADB-f*(CH-PADT-PADB);
     svg.appendChild(el('line',{x1:PADL,x2:CW-PADR,y1:yy,y2:yy,class:'gridline'}));
-    var t=el('text',{x:2,y:yy+3,class:'axis-label'}); t.textContent=fmt(maxV*f); svg.appendChild(t);
+    var t=el('text',{x:2,y:yy+3,class:'axis-label'}); t.textContent=fmt(maxV*f)+(suf||''); svg.appendChild(t);
   });
   svg.appendChild(el('line',{x1:PADL,x2:CW-PADR,y1:CH-PADB,y2:CH-PADB,class:'baseline'}));
   years.forEach(function(yr,i){
@@ -1261,7 +1272,7 @@ function scaffold(svg,maxV,years){
   return {x:x,y:y};
 }
 
-function addHoverCols(svg,x,years,onHover){
+function addHoverCols(svg,x,years,onHover,fijo){
   var n=years.length;
   var colW = (CW-PADL-PADR)/n;
   years.forEach(function(yr,i){
@@ -1270,7 +1281,8 @@ function addHoverCols(svg,x,years,onHover){
     var cross = el('line',{x1:cx,x2:cx,y1:PADT,y2:CH-PADB,class:'crosshair'});
     svg.appendChild(rect); svg.appendChild(cross);
     rect.addEventListener('pointerenter',function(e){ cross.style.opacity=1; onHover(e,i); });
-    rect.addEventListener('pointermove',function(e){ moveTT(e); });
+    // fijo: el detalle queda sobre la barra y no sigue al cursor
+    if(!fijo) rect.addEventListener('pointermove',function(e){ moveTT(e); });
     rect.addEventListener('pointerleave',function(){ cross.style.opacity=0; hideTT(); });
   });
 }
@@ -1327,23 +1339,27 @@ function stackedAreaChart(container,dataObj,order,years,colorMap){
   container.appendChild(svg);
 }
 
-function stackedBarChart(container,dataObj,order,years,colorMap,overlay){
+// pct: las barras van en porcentaje del total de cada año (llegan a 100%) y el detalle muestra cifras y porcentajes
+function stackedBarChart(container,dataObj,order,years,colorMap,overlay,pct){
   container.innerHTML='';
   var svg = newSvg();
   var n=years.length;
   var totals = years.map(function(_,i){ var s=0; order.forEach(function(k){ s+=(dataObj[k][i]||0); }); return s; });
+  var alto = function(name,i){ var v = dataObj[name][i]||0; return pct ? (totals[i] ? 100*v/totals[i] : 0) : v; };
   var ov = overlay ? overlay.values : [];
-  var maxV = niceMax(Math.max.apply(null, totals.concat(ov.filter(function(v){return v!=null;})).concat([1])));
-  var sc = scaffold(svg,maxV,years);
+  var maxV = pct ? 100 : niceMax(Math.max.apply(null, totals.concat(ov.filter(function(v){return v!=null;})).concat([1])));
+  var sc = scaffold(svg,maxV,years,pct ? '%' : '');
   var bw = (CW-PADL-PADR)/n*0.56;
+  var tope = [];
   for(var i=0;i<n;i++){
     var acc=0;
     order.forEach(function(name){
-      var v = dataObj[name][i]||0; if(v<=0) return;
+      var v = alto(name,i); if(v<=0) return;
       var y0=sc.y(acc), y1=sc.y(acc+v);
       svg.appendChild(el('rect',{x:sc.x(i)-bw/2,y:y1,width:bw,height:Math.max(0,y0-y1),fill:'var('+colorMap[name]+')',rx:3}));
       acc+=v;
     });
+    tope.push(acc);
   }
   if(overlay){
     var pts = ov.map(function(v,i){ return v==null?null:[sc.x(i),sc.y(v)]; });
@@ -1351,11 +1367,20 @@ function stackedBarChart(container,dataObj,order,years,colorMap,overlay){
     pts.forEach(function(p){ if(!p) return; svg.appendChild(el('circle',{cx:p[0],cy:p[1],r:2.6,fill:'var(--ink)',opacity:.7})); });
   }
   addHoverCols(svg,sc.x,years,function(e,i){
-    var html = '<div class="ttyear">'+years[i]+'</div>'+ttRows(order.slice().reverse(),colorMap,dataObj,i)+
+    var filas = pct
+      ? order.slice().reverse().map(function(name){
+          return '<div class="ttrow"><span class="ttname"><i style="background:var('+colorMap[name]+')"></i>'+name+'</span><b>'+fmt(dataObj[name][i])+
+            ' ('+Math.round(alto(name,i))+'%)</b></div>';
+        }).join('')
+      : ttRows(order.slice().reverse(),colorMap,dataObj,i);
+    var html = '<div class="ttyear">'+years[i]+'</div>'+filas+
       '<div class="ttrow" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2)"><span class="ttname">Total</span><b>'+fmt(totals[i])+'</b></div>'+
       (overlay && ov[i]!=null ? '<div class="ttrow"><span class="ttname">'+overlay.name+'</span><b>'+fmt(ov[i])+'</b></div>' : '');
-    showTT(e,html);
-  });
+    // el detalle va sobre la barra que corresponde (o sobre la línea superpuesta, si queda más arriba)
+    var r = svg.getBoundingClientRect(), k = r.width/CW, top = tope[i];
+    if(overlay && ov[i]!=null && ov[i]>top) top = ov[i];
+    showTTAt(html, r.left + sc.x(i)*k, r.top + sc.y(top)*k);
+  }, true);
   container.appendChild(svg);
 }
 
@@ -1658,7 +1683,7 @@ function makeNivelPanel(mountId, opts){
     sub.textContent = opts.sub(sel);
     legendHost.innerHTML = ''; legendHost.appendChild(legendRow(r.order, r.colorMap));
     if(r.type==='line') lineChart(chartHost, r.data, r.order, YEARS11, r.colorMap);
-    else stackedBarChart(chartHost, r.data, r.order, YEARS11, r.colorMap);
+    else stackedBarChart(chartHost, r.data, r.order, YEARS11, r.colorMap, null, opts.pct);
     tableHost.innerHTML = ''; tableHost.appendChild(dataTable(r.data, r.order, YEARS11));
     if(opts.stat){ var s = opts.stat(r, comuna); statBox.innerHTML = s ? s.value+'<small>'+s.label+'</small>' : ''; }
   }
@@ -1714,8 +1739,9 @@ makeNivelPanel('panel-estabdepe',{
 });
 
 makeNivelPanel('panel-estabrural',{
-  title:function(c){ return 'Colegios urbanos y rurales, '+c; },
-  sub:function(sel){ return 'Colegios con alumnos matriculados '+nivelBajada(sel)+', según su ubicación.'; },
+  title:function(c){ return 'Colegios urbanos y rurales, '+c+', porcentajes'; },
+  sub:function(sel){ return 'Colegios con alumnos matriculados '+nivelBajada(sel)+', según su ubicación. La tabla muestra el número de colegios.'; },
+  pct:true, // el gráfico va en porcentajes y la tabla en totales
   compute:function(c, sel){
     var cnt = contarColegios(c, sel, function(dep, rural){ return rural ? 'Rural' : 'Urbano'; });
     ['Urbano','Rural'].forEach(function(k){ cnt[k] = cnt[k] || YEARS11.map(function(){ return 0; }); });
@@ -2450,18 +2476,17 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // Indicadores por pestaña del cuadro derecho. La clave (key) es la de prep_manzanas_censo.py:
     // su posición en el arreglo v de cada polígono se busca en MZK al cargar los datos.
     var PESTANAS = [
-      {id:'pob', n:'Población', nota:'Menores de 18 = 0 a 17 años. El INE publica las edades en tramos (0-5, 6-13, 14-17, 18-24), así que los de 18 años justos no se pueden separar. NNA por hectárea suma los tramos de edad que se eligen en este cuadro (0-5, 6-13 y 14-17). El Censo no pregunta por embarazo: el % de 0 a 5 años es lo más cercano a natalidad reciente.'},
+      {id:'pob', n:'Población', nota:'INE publica las edades por tramos: 0-5, 6-13, 14-17, 18-24.'},
       {id:'viv', n:'Hogar y vivienda', nota:'Hacinamiento, allegamiento, materialidad y servicios se calculan sobre las viviendas ocupadas con moradores presentes; tenencia y calefacción, sobre los hogares.'},
       {id:'gse', n:'Socioeconómico', nota:''},
       {id:'comp', n:'Composición', nota:'Estado civil: personas de 15 años o más. El parentesco y los hogares monoparentales no se publican por manzana (solo en el microdato, a nivel de comuna). Hogares con menores = con al menos una persona de 0 a 14 años, así lo publica el INE.'}
     ];
     var VARS = [
-      {p:'pob', key:'men18', n:'Menores de 18 años', d:'Personas de 0 a 17 años, sobre el total de personas.'},
-      {p:'pob', key:'nna', n:'NNA por hectárea', u:' por ha', d:''}, // d y los valores se arman en el navegador según los tramos de edad elegidos
-      {p:'pob', key:'men6', n:'Niños de 0 a 5 años', d:'Personas de 0 a 5 años, sobre el total de personas.'},
-      {p:'pob', key:'may60', n:'60 años o más', d:'Personas de 60 años o más, sobre el total de personas.'},
-      {p:'pob', key:'edad', n:'Edad promedio', u:' años', d:'Edad promedio de las personas censadas.'},
-      {p:'pob', key:'inm', n:'Inmigrantes', d:'Personas nacidas fuera de Chile, sobre el total de personas. Muy afectado por la supresión del INE.'},
+      // pestaña Población: el promedio va separado en zona urbana y rural, y {c} se reemplaza por la comuna
+      {p:'pob', key:'men18', n:'Menores de 18 años', ur:true, d:'Personas de 0 a 17 años, sobre el total de la población de {c}.'},
+      {p:'pob', key:'may60', n:'60 años o más', ur:true, d:'Personas de 60 años o más, sobre el total de la población de {c}.'},
+      {p:'pob', key:'edad', n:'Edad promedio', u:' años', ur:true, d:'Edad promedio de las personas censadas en {c}.'},
+      {p:'pob', key:'inm', n:'Inmigrantes', ur:true, d:'Personas nacidas fuera de Chile, sobre el total de la población de {c}. Muy afectado por la supresión del INE.'},
 
       {p:'viv', key:'perhog', n:'Personas por hogar', u:'', dec:2, d:'Promedio de personas por hogar.'},
       {p:'viv', key:'prop', n:'Hogares propietarios', d:'Hogares en vivienda propia, pagada o pagándose, sobre el total de hogares.'},
@@ -2570,6 +2595,11 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       'Las personas en situación de calle y de operativos especiales solo están a nivel comunal y no aparecen en el mapa. En manzanas con pocos habitantes un porcentaje cambia mucho con una o dos personas; el detalle avisa cuando la manzana tiene menos de 20 personas. '+
       'Los colegios son los mismos del mapa de colegios, año 2025, tramo regular.';
     mount.appendChild(notas);
+    // el texto del índice va bajo el mapa y no en el cuadro de la leyenda
+    var notaIse = heln('p',{class:'depe-note'});
+    notaIse.innerHTML = '<b>Índice socioeconómico (proxy).</b> '+VARS.filter(function(v){ return v.key==='ise'; })[0].d+
+      ' Los quintiles se ponderan por la población de 18 años o más y se calculan dentro de cada comuna.';
+    mount.appendChild(notaIse);
     var notaObj = heln('p',{class:'depe-note'});
     notaObj.innerHTML = '<b>Índice socioeconómico y NNA.</b> Este indicador, en la pestaña Socioeconómico, pinta cada manzana según su número de NNA y usa los quintiles del índice socioeconómico (proxy) como filtro: las cifras de cada quintil, el total, el color y el detalle de cada manzana son niños, niñas y adolescentes (NNA) de los tramos de edad elegidos (el INE publica por manzana 0-5, 6-13 y 14-17 años). Con los quintiles y los tramos se puede ver, por ejemplo, cuántos NNA de 0 a 13 años viven en manzanas de los quintiles 4 y 5. '+
       'Es una lectura por manzana: muestra dónde viven niños en zonas de mayor nivel socioeconómico, no si esos niños pertenecen a los hogares de mayor nivel. Las entidades rurales, mucho más extensas, suelen sumar más NNA que una manzana.';
@@ -2614,7 +2644,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     armarVars();
 
-    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, KO = -1, KQ = -1, VNNA = null, VOBJ = null;
+    var map = null, capaPol = null, capaCol = null, breaks = [], KW = -1, KI = -1, KN = -1, KNN = -1, KH = -1, KO = -1, KQ = -1, VOBJ = null;
     var obj = null; // resumen de nivel alto con NNA en la comuna que se está mostrando
     // categorías de nivel alto con NNA (valor en v[KO]): 2 = quintil 4-5 con más NNA, 1 = quintil 4-5, 0 = quintil 1 a 3
     var CATC = [RAMP[0], RAMP[2], RAMP[4]];
@@ -2681,7 +2711,6 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         var n = 0; TRAMOS.forEach(function(t){ if(st.tr[t[0]]) n += r.v[2+MZK.indexOf(t[0])] || 0; });
         r.v[KNN] = n; r.v[KN] = r.v[KH]>0 ? Math.round(n/r.v[KH]*10)/10 : null;
       });
-      VNNA.d = 'Niños, niñas y adolescentes de '+edades()+' por hectárea de superficie del polígono.';
       VOBJ.d = 'El color es el número de NNA de '+edades()+' de cada manzana; el filtro elige los quintiles del índice socioeconómico (proxy) que se resaltan. Cortes de color calculados con los polígonos habitados.';
     }
     // nivel alto con NNA: índice en quintil 4 o 5 (quintiles ponderados, mismos cortes que la leyenda del índice) y
@@ -2725,9 +2754,9 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     }
     // valor comunal del indicador: promedio de los polígonos visibles ponderado por la base de cada indicador
     // (personas, población de 18+ o viviendas); NNA por hectárea = total de NNA / total de hectáreas
-    var BASE_P = ['men18','men6','may60','inm','edad'];
+    var BASE_P = ['men18','may60','inm','edad'];
     var BASE_W = ['esc','sup','prof','elem','desocup','casado','conviv','auc','sepdiv','viudo','soltero'];
-    var filasVis = [];
+    var filasVis = [], filasCom = []; // polígonos visibles y todos los de la comuna (urbanos y rurales)
     function valorComunal(filas){
       var v = st.v;
       if(v.cat || v.key==='obj') return null; // en índice y NNA el resumen es el total de NNA
@@ -2788,13 +2817,20 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
       h += '<div class="legrow"><i style="background:'+NODATA+'"></i>Sin dato o suprimido ('+fmt(nulos)+' de '+fmt(total)+')</div>';
-      var vc = valorComunal(filasVis);
+      var vc = v.ur ? null : valorComunal(filasVis);
+      if(v.ur){
+        // pestaña Población: promedio de la comuna separado en zona urbana y rural (siempre, aunque las rurales estén apagadas)
+        var zona = function(t){ var z = valorComunal(filasCom.filter(function(r){ return r.t===t; })); return z ? num(z.x, v) : 'sin dato'; };
+        h += '<div class="legmedia"><span>Promedio comuna · '+st.comuna+'</span>'+
+          '<div class="legur"><span>Zona urbana</span><b>'+zona('M')+'</b></div><div class="legur"><span>Zona rural</span><b>'+zona('E')+'</b></div></div>';
+      }
       if(vc){
         var donde = st.rural ? st.comuna : st.comuna+', zona urbana';
         h += '<div class="legmedia"><span>Promedio comunal · '+donde+'</span><b>'+num(vc.x, v)+'</b>' +
           '<small>'+vc.base+(vc.med!==undefined ? ' · mediana de los polígonos: '+num(vc.med, v) : '')+'</small></div>';
       }
-      h += '<div class="legnote">'+v.d+(v.cat ? ' Cortes calculados dentro de ' : v.pond ? ' Quintiles ponderados por la población de 18 años o más, calculados dentro de ' : ' Tramos calculados dentro de ')+st.comuna+'.'+(st.rural ? ' Las entidades rurales van con color más tenue.' : '')+'</div>';
+      if(v.ur) h += '<div class="legnote">'+v.d.replace('{c}', st.comuna)+(st.rural ? ' Las entidades rurales van con color más tenue.' : '')+'</div>';
+      else if(v.key!=='ise') h += '<div class="legnote">'+v.d+(v.cat ?' Cortes calculados dentro de ' : v.pond ? ' Quintiles ponderados por la población de 18 años o más, calculados dentro de ' : ' Tramos calculados dentro de ')+st.comuna+'.'+(st.rural ? ' Las entidades rurales van con color más tenue.' : '')+'</div>';
       var vobj = boxRight.querySelector('.vobj');
       vobj.hidden = !v.cat;
       if(v.cat){
@@ -2894,6 +2930,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
 
       var filas = MZ.filter(function(r){ return r.c===st.comuna && (st.rural || r.t==='M'); });
       filasVis = filas;
+      filasCom = MZ.filter(function(r){ return r.c===st.comuna; });
       obj = calcObj(filas); // siempre (el detalle de la pestaña Socioeconómico lo muestra) y antes de contar los sin dato, porque llena v[KO]
       var vals = filas.map(function(r){ return r.v[st.v.k]; }).filter(function(x){ return x!==null && x!==undefined; });
       breaks = st.v.pond
@@ -2943,7 +2980,6 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       KNN = 2 + MZK.length; KN = KNN + 1;
       KO = KN + 1; // categoría de nivel alto con NNA, se llena en cada render
       KQ = KO + 1; // quintil del índice socioeconómico (0 a 4), se llena en cada render
-      VNNA = VARS.filter(function(v){ return v.key==='nna'; })[0]; VNNA.k = KN;
       VOBJ = VARS.filter(function(v){ return v.key==='obj'; })[0]; VOBJ.k = KI; // se pinta con el índice
       calcNNA();
       loading.remove();
