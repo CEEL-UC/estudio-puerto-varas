@@ -2476,7 +2476,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
     // Indicadores por pestaña del cuadro derecho. La clave (key) es la de prep_manzanas_censo.py:
     // su posición en el arreglo v de cada polígono se busca en MZK al cargar los datos.
     var PESTANAS = [
-      {id:'pob', n:'Población', nota:'INE publica las edades por tramos: 0-5, 6-13, 14-17, 18-24.'},
+      {id:'pob', n:'Población', nota:'INE publica las edades por tramos: '+['0-5','6-13','14-17','18-24'].map(function(t){ return '<span style="white-space:nowrap">'+t+'</span>'; }).join(', ')+'.'}, // sin cortar un tramo en dos líneas
       {id:'viv', n:'Hogar y vivienda', nota:'Hacinamiento, allegamiento, materialidad y servicios se calculan sobre las viviendas ocupadas con moradores presentes; tenencia y calefacción, sobre los hogares.'},
       {id:'gse', n:'Socioeconómico', nota:''},
       {id:'comp', n:'Composición', nota:'Estado civil: personas de 15 años o más. El parentesco y los hogares monoparentales no se publican por manzana (solo en el microdato, a nivel de comuna). Hogares con menores = con al menos una persona de 0 a 14 años, así lo publica el INE.'}
