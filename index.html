@@ -2817,7 +2817,7 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         for(var i=0;i<=breaks.length;i++) h += '<div class="legrow"><i style="background:'+rampa(i)+'"></i>'+tramo(i)+u+'</div>';
       }
       h += '<div class="legrow"><i style="background:'+NODATA+'"></i>Sin dato o suprimido ('+fmt(nulos)+' de '+fmt(total)+')</div>';
-      var vc = v.ur ? null : valorComunal(filasVis);
+      var vc = v.ur || v.key==='ise' ? null : valorComunal(filasVis); // el índice muestra solo los quintiles
       if(v.ur){
         // pestaña Población: promedio de la comuna separado en zona urbana y rural (siempre, aunque las rurales estén apagadas)
         var zona = function(t){ var z = valorComunal(filasCom.filter(function(r){ return r.t===t; })); return z ? num(z.x, v) : 'sin dato'; };
