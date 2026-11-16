@@ -1,6 +1,6 @@
 # Estudio Puerto Varas
 
-Estudio del Centro UC Encuestas y Estudios Longitudinales (CEEL UC) sobre educación y migración estudiantil en el entorno de Puerto Varas: Puerto Varas, Puerto Montt, Frutillar, Osorno y el resto de la Región de Los Lagos, 2015-2025.
+Estudio del Centro UC Encuestas y Estudios Longitudinales (CEEL UC) sobre educación y migración estudiantil en el entorno de Puerto Varas: Puerto Varas, Puerto Montt, Frutillar, Osorno y el resto de la Región de Los Lagos, 2015-2025. Desde noviembre de 2026 incluye también las 52 comunas de la Región Metropolitana y Chicureo (distrito censal de Colina).
 
 La pregunta de partida es si la llegada de hogares de mayores ingresos durante la pandemia cambió la oferta y la demanda de educación particular pagada en la zona, y quiénes son las familias que llegaron.
 
@@ -15,6 +15,8 @@ estudio-puerto-varas/
 ├── index.html                  Sitio (GitHub Pages lo publica desde la raíz de main)
 ├── datos_manzanas.js           Datos del mapa del Censo 2024 por manzana
 ├── datos_cohortes.js           Datos del gráfico de año de llegada
+├── datos_rm.js                 Región Metropolitana: matrícula, colegios y procedencia (secciones 01 a 03)
+├── rm/                         Región Metropolitana por comuna: año de llegada, mapa de colegios y Censo
 ├── logo_ceel.png
 ├── Análisis y metadata/
 │   ├── Dofiles/                Código en Stata y Python (ver orden abajo)
@@ -38,7 +40,9 @@ por estudiante                  02_migracion_destino.do
                                 03_migracion_regional.py      ──►   Secciones 01 a 03 del sitio
                                 04_cohortes_llegada.py        ──►   datos_cohortes.js
                                 05_matricula_niveles.py
+Mineduc y Censo (RM)      ──►   11_region_metropolitana.py    ──►   datos_rm.js, rm/cohortes_*, rm/colegios_*
 Censo 2024: base manzana  ──►   prep_manzanas_censo.py        ──►   datos_manzanas.js (sección 04)
+                                prep_manzanas_censo.py --rm   ──►   rm/censo_* (cartografía Región 13)
 y cartografía Región 10         indice_socioeconomico_*.py    ──►   Outputs/Indice socioeconomico manzanas/
 Todo lo anterior          ──►   06_respaldo_sitio_excel.py    ──►   Excel de respaldo de las cifras del sitio
                                 07 y 08 (ingreso a 1° básico) ──►   Informe Word
@@ -53,6 +57,7 @@ Orden de ejecución:
 5. `prep_manzanas_censo.py` e `indice_socioeconomico_manzanas*.py`: mapa por manzana e índice socioeconómico (documento metodológico en `indice_socioeconomico_manzanas_documento.md`).
 6. `06_respaldo_sitio_excel.py`: respaldo en Excel de todas las cifras del sitio.
 7. `07_analisis_ingreso_1basico.py` y `08_informe_ingreso_1basico_word.py`: informe sobre ingreso a 1° básico y año de llegada.
+8. `11_region_metropolitana.py` y luego `prep_manzanas_censo.py --rm`: Región Metropolitana con las mismas definiciones que Los Lagos (con `--validar 10`, el primero reproduce Los Lagos y lo compara con lo publicado). Chicureo es el distrito censal Chicureo de Colina; un colegio es de Chicureo si sus coordenadas caen dentro del distrito.
 
 Requisitos: Stata y Python 3.12 con `polars`, `pyarrow`, `numpy`, `shapely`, `openpyxl` y `python-docx`.
 

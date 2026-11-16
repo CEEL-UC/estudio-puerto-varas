@@ -6,7 +6,13 @@
 # Cada polígono lleva v = [personas, viviendas particulares, indicador_1, ..., indicador_n], en el orden
 # de la lista MZK que también se escribe al .js. El sitio busca cada indicador por su clave en MZK,
 # así que agregar o reordenar indicadores aquí no rompe el HTML (solo hay que describirlos allá).
-import glob, json, os
+#
+# Con --rm (16 nov 2026) hace lo mismo para la Región Metropolitana (geoparquet R13, que está en la carpeta del mapa
+# RM de Agenda Pública) y escribe un archivo por comuna en rm/censo_<CUT>.js del repo, que el sitio carga al elegir la
+# comuna. Chicureo (distrito censal 2 de Colina) va aparte en rm/censo_chicureo.js: son los mismos polígonos de
+# Colina, con el índice estandarizado con la media y la desviación de Colina. Los nombres de comuna se toman de
+# datos_rm.js (lo escribe 11_region_metropolitana.py), para que calcen con los del resto del sitio.
+import glob, json, os, re, sys
 import numpy as np
 import polars as pl
 import shapely
@@ -15,6 +21,10 @@ from shapely import wkb
 BASE = os.path.join(os.path.dirname(__file__), '..', '..')
 CARTO = os.path.join(BASE, 'Datos', 'Censo 2024', 'cartografia')
 SALIDA = r'C:\Users\gonza\repos\ceel-estudio-puerto-varas\datos_manzanas.js'
+RM = '--rm' in sys.argv
+if RM:
+    CARTO = os.path.join(BASE, '..', 'Agenda Pública Consultores', 'Mapa Censo RM', 'Datos', 'cartografia')
+    SALIDA = os.path.join(os.path.dirname(SALIDA), 'rm')
 
 # todas las comunas de la Región de Los Lagos (el geoparquet es de la región 10); el nombre se arma desde COMUNA del INE
 COMUNAS = {}
@@ -139,7 +149,7 @@ for capa in ['Manzanas', 'Entidades']:
     num = [x for x in d.columns if x.startswith(('n_', 'prom_'))]
     d = d.with_columns([c(x).cast(pl.Float64) for x in num])
     d = d.with_columns(**IND).with_columns(capa=pl.lit(capa), pob18=mayores18)
-    partes.append(d.select(['capa', 'CUT', 'MANZENT', 'ENTIDAD', 'LOCALIDAD', 'SHAPE', 'n_per', 'n_vp', 'pob18'] + list(IND)))
+    partes.append(d.select(['capa', 'CUT', 'MANZENT', 'ENTIDAD', 'LOCALIDAD', 'DISTRITO', 'SHAPE', 'n_per', 'n_vp', 'pob18'] + list(IND)))
 d = pl.concat(partes)
 
 # área de cada polígono en hectáreas, sobre la geometría original (antes de simplificar). Las coordenadas vienen en
@@ -178,7 +188,7 @@ d = d.with_columns(c('w').cast(pl.Int64), c('n05').cast(pl.Int64), c('n613').cas
 MZK = list(IND) + ['ha', 'ise', 'w']
 
 # control: el índice tiene que calzar con el Excel ponderado (columna "Índice 7 componentes")
-if os.path.exists(EXCEL_PONDERADO):
+if os.path.exists(EXCEL_PONDERADO) and not RM:
     from openpyxl import load_workbook
     hoja = load_workbook(EXCEL_PONDERADO, read_only=True, data_only=True)['Manzanas']
     enc = next(hoja.iter_rows(max_row=1, values_only=True))
@@ -201,11 +211,32 @@ for r in d.iter_rows(named=True):
         'g': {'type': gj['type'], 'coordinates': rnd(gj['coordinates'])},
         'v': [int(r['n_per'] or 0), int(r['n_vp'] or 0)] + [r[k] for k in MZK],
     })
+    if RM:
+        filas[-1]['cut'], filas[-1]['dist'] = r['CUT'], r['DISTRITO']
 
-with open(SALIDA, 'w', encoding='utf8') as f:
-    f.write('var MZK=' + json.dumps(MZK) + ';\n')
-    f.write('var MZ=' + json.dumps(filas, ensure_ascii=False, separators=(',', ':')) + ';\n')
-print(len(filas), 'poligonos,', len(MZK), 'indicadores,', round(os.path.getsize(SALIDA) / 1e6, 2), 'MB')
+if not RM:
+    with open(SALIDA, 'w', encoding='utf8') as f:
+        f.write('var MZK=' + json.dumps(MZK) + ';\n')
+        f.write('var MZ=' + json.dumps(filas, ensure_ascii=False, separators=(',', ':')) + ';\n')
+    print(len(filas), 'poligonos,', len(MZK), 'indicadores,', round(os.path.getsize(SALIDA) / 1e6, 2), 'MB')
+else:
+    rmjs = open(os.path.join(os.path.dirname(SALIDA), 'datos_rm.js'), encoding='utf8').read()
+    cut_nombre = {v: k for k, v in json.loads(re.match(r'var RM=(.*);', rmjs.strip()).group(1))['cut'].items() if isinstance(v, int)}
+    os.makedirs(SALIDA, exist_ok=True)
+    grupos = {}
+    for f in filas:
+        cut, dist = f.pop('cut'), f.pop('dist')
+        f['c'] = cut_nombre[cut]
+        grupos.setdefault(cut, []).append(f)
+        if cut == 13301 and dist == 'CHICUREO':
+            grupos.setdefault('chicureo', []).append(dict(f, c='Chicureo'))
+    for cut, fs in grupos.items():
+        with open(os.path.join(SALIDA, f'censo_{cut}.js'), 'w', encoding='utf8') as f:
+            f.write('pvCensoRM(' + json.dumps(fs[0]['c'], ensure_ascii=False) + ',' + json.dumps(MZK) + ',' +
+                    json.dumps(fs, ensure_ascii=False, separators=(',', ':')) + ');\n')
+    tam = {cut: os.path.getsize(os.path.join(SALIDA, f'censo_{cut}.js')) for cut in grupos}
+    print(len(filas), 'polígonos en', len(grupos), 'archivos (Chicureo:', len(grupos['chicureo']), 'polígonos),',
+          round(sum(tam.values()) / 1e6, 1), 'MB, el más pesado', max(tam, key=tam.get), round(max(tam.values()) / 1e6, 2), 'MB')
 
 # control rápido: cobertura de cada indicador (polígonos con dato) y rango
 res = d.select([pl.struct(n=c(k).is_not_null().sum(), mn=c(k).min(), md=c(k).median(), mx=c(k).max()).alias(k) for k in MZK]).row(0, named=True)
