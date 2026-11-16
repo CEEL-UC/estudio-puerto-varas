@@ -901,12 +901,8 @@ table.clist{width:100%;border-collapse:collapse;font-size:12px}
 .censo-vars .vlist[hidden]{display:none}
 .censo-loading{padding:40px 14px;color:var(--ink-3);font-size:12.5px}
 .censo-loading.sobre{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1100;padding:10px 14px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2)}
-.regsel{display:inline-flex;border:1.5px solid var(--line);border-radius:2px;overflow:hidden;margin-right:2px}
-.regbtn{border:0;background:transparent;color:var(--ink-3);font:700 11px "IBM Plex Mono",monospace;padding:4px 9px;cursor:pointer;transition:color .15s ease,background .15s ease}
-.regbtn + .regbtn{border-left:1.5px solid var(--line)}
-.regbtn:hover{color:var(--ink)}
-.regbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.pillhost{display:inline-flex;flex-wrap:wrap;gap:5px}
+.sel-lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.sel-lbl + select{margin-right:8px}
 .leaflet-tooltip .tt-grid{display:grid;grid-template-columns:1fr auto;gap:1px 10px;margin-top:6px;font-size:11.5px;color:#525b56}
 .leaflet-tooltip .tt-grid b{font-family:"IBM Plex Mono",monospace;font-weight:600;color:#181d1a;text-align:right}
 .leaflet-tooltip .tt-grid .on{color:#181d1a;font-weight:700}
@@ -1229,9 +1225,9 @@ var REGIONES = [
   {id:'LL', nombre:'Los Lagos', total:REG_LL, corto:'Los Lagos', cod:10},
   {id:'RM', nombre:'Metropolitana', total:REG_RM, corto:'la RM', cod:13}
 ];
-// comunas de la RM pedidas expresamente: van como botones; las demás, en la lista desplegable
-var RM_DEST = ['Colina','Chicureo','Lampa','San Bernardo','Calera de Tango','Padre Hurtado','Peñaflor','Talagante'];
 var COMUNAS_RM = RMD ? RMD.comunas : [];
+// la RM en orden alfabético (Chicureo entre Cerro Navia y Colina)
+var COMUNAS_RM_ABC = COMUNAS_RM.slice().sort(function(a,b){ return a.localeCompare(b,'es'); });
 function regionDe(c){ return (c===REG_RM || (RMD && RMD.cut[c]!==undefined)) ? REGIONES[1] : REGIONES[0]; }
 function esTotal(c){ return c===REG_LL || c===REG_RM; }
 // las series de la RM se guardan con las mismas claves que las de Los Lagos ("...de otra comuna de Los Lagos") y se
@@ -1483,63 +1479,36 @@ function legendRow(order,colorMap){
   return d;
 }
 
-// selector de comuna por región: primero la región (Los Lagos o Metropolitana), después las comunas destacadas de esa
-// región como botones y una lista desplegable con las demás, agrupadas por región (elegir ahí una comuna de la otra
-// región cambia la región). cfg = {LL:{pills, grupos:[[rótulo, comunas]], total}, RM:{...}, colores, multi}:
-// total agrega el total regional a la lista; multi (un arreglo) es la selección múltiple de la sección 01, que se
-// modifica en el mismo arreglo. Con selección múltiple los totales regionales no se combinan con comunas.
+// selector de comuna por región: dos listas desplegables, Región (Los Lagos, Metropolitana) y Comuna (las comunas de
+// la región elegida). Al cambiar de región se elige la primera comuna de su lista: Puerto Varas en Los Lagos y la
+// primera en orden alfabético en la RM. cfg = {LL:{lista, total}, RM:{lista, total}, multi}: total agrega el total
+// regional al final de la lista; multi (un arreglo) es la selección múltiple de la sección 01, que se modifica en el
+// mismo arreglo y se muestra como etiquetas con ×. Con selección múltiple los totales regionales no se combinan con
+// comunas.
 function regionPicker(initial, onChange, cfg){
   var row = heln('div',{class:'switcher picker'});
-  var regWrap = heln('span',{class:'regsel',role:'group','aria-label':'Región'}), regBtns = {};
-  var pillHost = heln('span',{class:'pillhost'});
-  var sel = heln('select',{class:'comsel','aria-label':'Otra comuna'});
-  var chips = cfg.multi ? heln('span',{class:'chips'}) : null;
-  var lista = cfg.multi, pills = {}, regAct = null;
   var regs = REGIONES.filter(function(r){ return cfg[r.id] && (r.id==='LL' || RMD); });
-  regs.forEach(function(r){
-    var b = heln('button',{class:'regbtn',type:'button'}); b.textContent = r.nombre;
-    b.addEventListener('click',function(){
-      if(regAct===r.id) return;
-      var c0 = cfg[r.id].pills[0];
-      if(lista){ lista.length = 0; lista.push(c0); armar(r.id); pintar(); onChange(); }
-      else { marcar(c0); onChange(c0); }
-    });
-    regBtns[r.id] = b; regWrap.appendChild(b);
-  });
-  row.appendChild(regWrap); row.appendChild(pillHost); row.appendChild(sel); if(chips) row.appendChild(chips);
-  function color(c){ return cfg.colores && cfg.colores[c] ? 'var('+cfg.colores[c]+')' : 'var(--ink-2)'; }
-  function todas(rc){ var out = []; rc.pills.concat.apply(rc.pills, rc.grupos.map(function(g){ return g[1]; })).forEach(function(c){ if(out.indexOf(c)<0) out.push(c); }); return out; }
+  var lbR = heln('span',{class:'sel-lbl'}); lbR.textContent = 'Región';
+  var selR = heln('select',{class:'comsel regsel2','aria-label':'Región'});
+  regs.forEach(function(r){ var o = heln('option',{value:r.id}); o.textContent = r.id==='RM' ? 'Metropolitana' : 'Los Lagos'; selR.appendChild(o); });
+  var lbC = heln('span',{class:'sel-lbl'}); lbC.textContent = 'Comuna';
+  var sel = heln('select',{class:'comsel','aria-label':'Comuna'});
+  var chips = cfg.multi ? heln('span',{class:'chips'}) : null;
+  var lista = cfg.multi, regAct = null;
+  [lbR, selR, lbC, sel].forEach(function(x){ row.appendChild(x); }); if(chips) row.appendChild(chips);
+  function opciones(id){
+    var rc = cfg[id], r = REGIONES.filter(function(x){ return x.id===id; })[0];
+    return rc.lista.map(function(c){ return [c, c]; }).concat(rc.total ? [[r.total, r.total+' (total)']] : []);
+  }
   function armar(id){
-    regAct = id;
-    Object.keys(regBtns).forEach(function(k){ regBtns[k].setAttribute('aria-pressed', k===id?'true':'false'); });
-    pillHost.innerHTML = ''; pills = {};
-    cfg[id].pills.forEach(function(c){
-      var b = heln('button',{class:'pillmini',type:'button'});
-      b.style.setProperty('--dotc', color(c));
-      b.appendChild(heln('span',{class:'dot'})); b.appendChild(document.createTextNode(c));
-      b.addEventListener('click',function(){ if(lista) alternar(c); else { marcar(c); onChange(c); } });
-      pills[c] = b; pillHost.appendChild(b);
-    });
+    regAct = id; selR.value = id;
     sel.innerHTML = '';
-    var o0 = heln('option',{value:''}); o0.textContent = lista ? 'Sumar otra comuna…' : 'Otra comuna…'; sel.appendChild(o0);
-    regs.forEach(function(r){
-      var rc = cfg[r.id], tot = rc.total && rc.pills.indexOf(r.total)<0 ? [[r.total, r.total+' (total)']] : [];
-      var grupos = r.id===id
-        ? rc.grupos.map(function(g,i){ return [g[0], (i===0 ? tot : []).concat(g[1].filter(function(c){ return rc.pills.indexOf(c)<0; }).map(function(c){ return [c,c]; }))]; })
-        : [[r.total, tot.concat(todas(rc).map(function(c){ return [c, c===r.total ? c+' (total)' : c]; }))]];
-      grupos.forEach(function(g){
-        if(!g[1].length) return;
-        var og = heln('optgroup',{label:g[0]});
-        g[1].forEach(function(x){ var o = heln('option',{value:x[0]}); o.textContent = x[1]; og.appendChild(o); });
-        sel.appendChild(og);
-      });
-    });
+    if(lista){ var o0 = heln('option',{value:''}); o0.textContent = 'Agregar comuna…'; sel.appendChild(o0); }
+    opciones(id).forEach(function(x){ var o = heln('option',{value:x[0]}); o.textContent = x[1]; sel.appendChild(o); });
   }
   function marcar(c){
     var id = regionDe(c).id; if(id!==regAct && cfg[id]) armar(id);
-    Object.keys(pills).forEach(function(k){ pills[k].setAttribute('aria-pressed', k===c?'true':'false'); });
-    sel.value = pills[c] ? '' : c;
-    sel.classList.toggle('on', !pills[c]);
+    sel.value = c;
   }
   function alternar(c){
     var i = lista.indexOf(c), j;
@@ -1551,18 +1520,24 @@ function regionPicker(initial, onChange, cfg){
     pintar(); onChange();
   }
   function pintar(){
-    Object.keys(pills).forEach(function(k){ pills[k].setAttribute('aria-pressed', lista.indexOf(k)>=0?'true':'false'); });
     chips.innerHTML = '';
-    lista.filter(function(c){ return !pills[c]; }).forEach(function(c){
-      var ch = heln('button',{class:'chip',type:'button',title:'Quitar '+c}); ch.innerHTML = c+' <b>&times;</b>';
+    lista.forEach(function(c){
+      var ch = heln('button',{class:'chip',type:'button',title:lista.length>1 ? 'Quitar '+c : c}); ch.innerHTML = c+(lista.length>1 ? ' <b>&times;</b>' : '');
       ch.addEventListener('click',function(){ alternar(c); });
       chips.appendChild(ch);
     });
   }
+  selR.addEventListener('change',function(){
+    var id = selR.value; if(id===regAct) return;
+    armar(id);
+    var c0 = cfg[id].lista[0];
+    if(lista){ lista.length = 0; lista.push(c0); pintar(); onChange(); }
+    else { sel.value = c0; onChange(c0); }
+  });
   sel.addEventListener('change',function(){
     if(!sel.value) return;
     if(lista){ if(lista.indexOf(sel.value)<0) alternar(sel.value); sel.value = ''; }
-    else { var c = sel.value; marcar(c); onChange(c); }
+    else onChange(sel.value);
   });
   row.marcar = lista ? pintar : marcar; // para sincronizar el selector cuando la comuna cambia desde afuera
   armar(regionDe(lista ? lista[0] : initial).id);
@@ -1570,13 +1545,10 @@ function regionPicker(initial, onChange, cfg){
   return row;
 }
 
-// selector de los gráficos con óptica regional (migración, año de llegada, Censo): en Los Lagos Puerto Varas como
-// botón y las otras comunas del estudio y el resto de la región en la lista; en la RM las comunas pedidas como botones
+// selector de los gráficos con óptica regional (migración, año de llegada, Censo): en Los Lagos las 30 comunas con
+// Puerto Varas primero; en la RM las 52 comunas y Chicureo en orden alfabético
 function comunaPicker(initial, onChange, conRegion){
-  return regionPicker(initial, onChange, {colores: COLORES_PILL,
-    LL: {pills:[DEFAULT_COMUNA], total:conRegion, grupos:[['Comunas del estudio', COMUNAS.filter(function(c){ return c!==DEFAULT_COMUNA; })],
-                                                       ['Resto de Los Lagos', COMUNAS_REGION.filter(function(c){ return COMUNAS.indexOf(c)<0; })]]},
-    RM: {pills:RM_DEST, total:conRegion, grupos:[['Resto de la RM', COMUNAS_RM.filter(function(c){ return RM_DEST.indexOf(c)<0; })]]}});
+  return regionPicker(initial, onChange, {LL: {lista:COMUNAS_REGION, total:conRegion}, RM: {lista:COMUNAS_RM_ABC, total:conRegion}});
 }
 
 // -------- panel factory: own comuna switcher, own chart/table toggle --------
@@ -1710,26 +1682,21 @@ function nivelToggles(sel, onChange){
   return row;
 }
 
-// selector de las secciones 01 y 02: Puerto Varas, las 3 comunas más próximas y el total regional como botones;
-// las demás comunas de Los Lagos en una lista desplegable
-var CERCANAS = ['Puerto Varas','Llanquihue','Puerto Montt','Frutillar','Región de Los Lagos'];
-var CERCANAS_RM = RM_DEST.concat([REG_RM]);
+// selector de las secciones 01 y 02: región y comuna, con el total regional al final de la lista de comunas.
+// CERCANAS_COLOR da un color fijo a algunas comunas en el gráfico de varias comunas
 var CERCANAS_COLOR = {'Puerto Varas':'--c-pv','Llanquihue':'--c-os','Puerto Montt':'--c-pm','Frutillar':'--c-fr','Región de Los Lagos':'--ink-2',
   'Colina':'--c-pv','Chicureo':'--c-fr','Lampa':'--c-pm','San Bernardo':'--c-os','Calera de Tango':'--c-extra',
   'Padre Hurtado':'--c-t1','Peñaflor':'--c-t2','Talagante':'--c-t3','Región Metropolitana':'--ink-2'};
-var COLORES_PILL = {}; [CERCANAS_COLOR, COMUNA_COLOR].forEach(function(o){ Object.keys(o).forEach(function(k){ COLORES_PILL[k] = o[k]; }); });
 function cfgCercanas(lista){
-  return {colores:CERCANAS_COLOR, multi:lista,
-    LL:{pills:CERCANAS, grupos:[['Región de Los Lagos', COMUNAS_REGION]]},
-    RM:{pills:CERCANAS_RM, grupos:[['Región Metropolitana', COMUNAS_RM]]}};
+  return {multi:lista, LL:{lista:COMUNAS_REGION, total:true}, RM:{lista:COMUNAS_RM_ABC, total:true}};
 }
 function pickerCercanas(initial, onChange){ return regionPicker(initial, onChange, cfgCercanas(null)); }
 
-// selector múltiple: botones que se prenden y apagan + lista para sumar otras comunas, también de la otra región
-// (aparecen como etiquetas con ×). Los totales regionales no se combinan con comunas.
+// selector múltiple (sección 01): las comunas elegidas aparecen como etiquetas con ×; al cambiar de región se parte de
+// nuevo con la primera comuna de la lista. Los totales regionales no se combinan con comunas.
 var PALETA = ['--c-pv','--c-pm','--c-fr','--c-os','--c-extra','--c-t1','--c-t2','--c-t3','--ink-2','--ink-3'];
 function multiPickerCercanas(lista, onChange){ return regionPicker(null, onChange, cfgCercanas(lista)); }
-// color de cada comuna elegida: el de su botón si no lo usa otra antes en la lista (Puerto Varas y Colina comparten
+// color de cada comuna elegida: el suyo de CERCANAS_COLOR si no lo usa otra antes en la lista (Puerto Varas y Colina comparten
 // color), si no el primero libre de la paleta
 function colorComuna(c, lista){
   var usados = {}, out = {}, k = 0;
@@ -2222,10 +2189,8 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
   head.appendChild(titleWrap);
   mount.appendChild(head);
 
-  // Los Lagos: las 4 comunas del estudio; RM: las comunas pedidas como botones y las demás en la lista
-  var comunaRow = regionPicker(comunaSel, function(c){ comunaSel = c; selectedRbd = null; render(); }, {colores: COLORES_PILL,
-    LL: {pills:COMUNAS, grupos:[]},
-    RM: {pills:RM_DEST, grupos:[['Resto de la RM', COMUNAS_RM.filter(function(c){ return RM_DEST.indexOf(c)<0; })]]}});
+  // Los Lagos: las 4 comunas del estudio; RM: todas las comunas, en orden alfabético
+  var comunaRow = regionPicker(comunaSel, function(c){ comunaSel = c; selectedRbd = null; render(); }, {LL: {lista:COMUNAS}, RM: {lista:COMUNAS_RM_ABC}});
   function disponible(c){ return COMUNAS.indexOf(c)>=0 || (RMD && regionDe(c).id==='RM' && !esTotal(c)); }
   mount.appendChild(comunaRow);
 
