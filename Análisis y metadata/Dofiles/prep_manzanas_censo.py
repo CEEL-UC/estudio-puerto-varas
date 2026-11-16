@@ -238,6 +238,29 @@ else:
     print(len(filas), 'polígonos en', len(grupos), 'archivos (Chicureo:', len(grupos['chicureo']), 'polígonos),',
           round(sum(tam.values()) / 1e6, 1), 'MB, el más pesado', max(tam, key=tam.get), round(max(tam.values()) / 1e6, 2), 'MB')
 
+# límites de las comunas de la región (17 nov 2026), simplificados a ~100 m, para dibujarlas sobre el mapa y elegir
+# comuna con un click, como en el mapa de Agenda Pública. En la RM va además el límite del distrito Chicureo.
+# Los Lagos: limites_ll.js en la raíz del repo; RM: rm/limites.js
+nombre_de = cut_nombre if RM else COMUNAS
+per = dict(d.group_by('CUT').agg(c('n_per').sum()).rows())
+lim = []
+com = pl.read_parquet(glob.glob(os.path.join(CARTO, '*_Comunal.parquet'))[0]).with_columns(c('CUT').cast(pl.Int64))
+for r in com.iter_rows(named=True):
+    if r['CUT'] not in nombre_de:
+        continue
+    gj = shapely.geometry.mapping(shapely.simplify(wkb.loads(r['SHAPE']), 0.001, preserve_topology=True))
+    lim.append({'n': nombre_de[r['CUT']], 'per': int(per.get(r['CUT'], 0)), 'g': {'type': gj['type'], 'coordinates': rnd(gj['coordinates'])}})
+if RM:
+    dist = pl.read_parquet(glob.glob(os.path.join(CARTO, '*_Distrital.parquet'))[0]).with_columns(c('CUT').cast(pl.Int64))
+    r = dist.filter((c('CUT') == 13301) & (c('DISTRITO') == 'CHICUREO')).row(0, named=True)
+    gj = shapely.geometry.mapping(shapely.simplify(wkb.loads(r['SHAPE']), 0.0005, preserve_topology=True))
+    pch = sum(x['v'][0] for x in grupos['chicureo'])
+    lim.append({'n': 'Chicureo', 'per': int(pch), 'sub': 'Colina', 'g': {'type': gj['type'], 'coordinates': rnd(gj['coordinates'])}})
+LIM = os.path.join(SALIDA, 'limites.js') if RM else os.path.join(os.path.dirname(SALIDA), 'limites_ll.js')
+with open(LIM, 'w', encoding='utf8') as f:
+    f.write('pvLimites(' + json.dumps('RM' if RM else 'LL') + ',' + json.dumps(lim, ensure_ascii=False, separators=(',', ':')) + ');\n')
+print('límites:', len(lim), 'polígonos,', round(os.path.getsize(LIM) / 1e3), 'KB')
+
 # control rápido: cobertura de cada indicador (polígonos con dato) y rango
 res = d.select([pl.struct(n=c(k).is_not_null().sum(), mn=c(k).min(), md=c(k).median(), mx=c(k).max()).alias(k) for k in MZK]).row(0, named=True)
 for k in MZK:

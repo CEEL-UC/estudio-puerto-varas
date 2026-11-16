@@ -3120,7 +3120,42 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
         var b = L.latLngBounds([]);
         filas.forEach(function(r){ if(r.t==='M' && r.nom===top) b.extend(r._lyr.getBounds()); });
         if(b.isValid()) map.fitBounds(b, {padding:[20,20]});
+        else if(limites[st.comuna]) map.fitBounds(limites[st.comuna].getBounds(), {padding:[20,20]});
       }
+      pintarLimites();
+    }
+
+    // límites de las comunas de la región (limites_ll.js y rm/limites.js), como en el mapa de Agenda Pública: la
+    // comuna elegida va con borde marcado y sin relleno; las demás, con borde suave, se destacan al pasar el mouse y
+    // con un click pasan a ser la comuna del mapa. Chicureo (distrito de Colina) va con borde punteado; cuando se
+    // mira Colina o Chicureo, el otro va solo como línea, para no tapar las manzanas.
+    var limites = {}, LIM_OK = {}, capaLim = null, rendLim = null;
+    window.pvLimites = function(reg, lista){
+      if(LIM_OK[reg]===true) return;
+      LIM_OK[reg] = true;
+      lista.forEach(function(c){
+        var l = L.geoJSON(c.g, {pane:'limites', renderer:rendLim, style: function(){ return estiloLim(c.n); }});
+        l.bindTooltip(function(){ return '<span class="tt-title">'+c.n+'</span><span class="tt-sub">'+(c.sub ? 'Distrito censal de '+c.sub+' · ' : '')+fmt(c.per)+' personas · click para ver sus manzanas</span>'; }, {sticky:true, className:'tt-censo tt-lim'});
+        l.on('click', function(){ if(c.n!==st.comuna){ comunaRow.marcar(c.n); cambiar(c.n); } });
+        l.on('mouseover', function(){ if(c.n!==st.comuna && estiloLim(c.n).fill) l.setStyle({fillOpacity:.14, fillColor:'#d9861f'}); });
+        l.on('mouseout', function(){ l.setStyle(estiloLim(c.n)); });
+        limites[c.n] = l;
+      });
+      // Chicureo encima de Colina
+      lista.slice().sort(function(a,b){ return (a.sub?1:0)-(b.sub?1:0); }).forEach(function(c){ capaLim.addLayer(limites[c.n]); });
+      pintarLimites();
+    };
+    function estiloLim(n){
+      var sel = n===st.comuna, par = (n==='Colina' && st.comuna==='Chicureo') || (n==='Chicureo' && st.comuna==='Colina');
+      var e = {color:'#1a1f1c', weight: sel ? 2.6 : .9, opacity: sel ? .9 : .55, fill: !sel && !par, fillColor:'#1a1f1c', fillOpacity:.03, interactive: !sel && !par};
+      if(n==='Chicureo') e.dashArray = '5 4';
+      return e;
+    }
+    function pintarLimites(){
+      if(!map) return;
+      var reg = regionDe(st.comuna).id;
+      if(!LIM_OK[reg]){ LIM_OK[reg] = 'cargando'; cargarScript(reg==='RM' ? 'rm/limites.js' : 'limites_ll.js', function(ok){ if(!ok) LIM_OK[reg] = false; }); }
+      Object.keys(limites).forEach(function(k){ limites[k].setStyle(estiloLim(k)); });
     }
     render(false);
 
@@ -3140,8 +3175,16 @@ var BASE_GEO = {"comunas":{"Puerto Varas":{"type":"Polygon","coordinates":[[[-73
       loading.remove();
       map = L.map(mapDiv, {preferCanvas:true, scrollWheelZoom:true, zoomControl:false});
       L.control.zoom({position:'bottomleft'}).addTo(map);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19,
-        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · INE Censo 2024'}).addTo(map);
+      // mapa base gris claro de Esri (sin clave de API), como en el mapa de Agenda Pública: las manzanas resaltan más
+      // que sobre OpenStreetMap. Los nombres de calles y lugares van en una capa aparte, encima de las manzanas
+      var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+      L.tileLayer(ESRI+'World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, maxNativeZoom:16,
+        attribution:'Esri, HERE, Garmin, &copy; OpenStreetMap · INE Censo 2024'}).addTo(map);
+      map.createPane('nombres').style.zIndex = 430; map.getPane('nombres').style.pointerEvents = 'none';
+      L.tileLayer(ESRI+'World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {pane:'nombres', maxZoom:19, maxNativeZoom:16}).addTo(map);
+      map.createPane('limites').style.zIndex = 420; // límites de comunas sobre las manzanas, bajo los nombres
+      rendLim = L.svg({pane:'limites'});
+      capaLim = L.layerGroup().addTo(map);
       map.createPane('colegios').style.zIndex = 450; // colegios siempre sobre las manzanas
       rendCol = L.canvas({pane:'colegios'});
       capaPol = L.layerGroup().addTo(map);
